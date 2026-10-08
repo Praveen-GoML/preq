@@ -1,0 +1,10 @@
+{
+  "name": "preq-platform",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd preq-frontend && npm install && npm run build",
+    "dev": "cd preq-frontend && npm run dev",
+    "dev:backend": "cd preq-backend && python -m uvicorn main:app --reload --port 8000"
+  }
+}

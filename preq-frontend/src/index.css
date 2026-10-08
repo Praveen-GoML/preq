@@ -1,0 +1,385 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@300;400;500;600;700;800&family=Inconsolata:wght@400;600;700&display=swap');
+
+:root {
+  --goml-orange: #ED7D31;
+  --goml-orange-hover: #ff8600;
+  --goml-orange-light: #fff3eb;
+  --goml-orange-border: #fcd9c2;
+  
+  --goml-black: #000000;
+  --goml-dark: #111827;
+  --goml-gray-900: #1e293b;
+  --goml-gray-700: #334155;
+  --goml-gray-600: #475569;
+  --goml-gray-500: #64748b;
+  --goml-gray-300: #cbd5e1;
+  --goml-gray-200: #e2e8f0;
+  --goml-gray-100: #f1f5f9;
+  --goml-gray-50: #f8fafc;
+  --goml-white: #ffffff;
+  
+  --goml-success: #16a34a;
+  --goml-success-bg: #f0fdf4;
+  --goml-success-border: #bbf7d0;
+  
+  --goml-warning: #d97706;
+  --goml-warning-bg: #fffbeb;
+  --goml-warning-border: #fde68a;
+  
+  --goml-danger: #dc2626;
+  --goml-danger-bg: #fef2f2;
+  --goml-danger-border: #fecaca;
+  
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #ffffff;
+  color: var(--goml-gray-900);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Announcement Top Banner */
+.announcement-bar {
+  background-color: #fbf6f2;
+  border-bottom: 1px solid #fae6d9;
+  padding: 0.55rem 1.5rem;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: var(--goml-dark);
+}
+
+.announcement-bar a {
+  color: var(--goml-orange);
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.announcement-bar a:hover {
+  text-decoration: underline;
+}
+
+/* Headers & Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--goml-black);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.creative-text {
+  font-family: 'Caveat', cursive;
+  font-style: normal;
+  color: var(--goml-orange);
+  font-size: 1.25em;
+  font-weight: 700;
+  position: relative;
+  display: inline-block;
+}
+
+/* Buttons - GoML Signature Pill Style */
+.btn-goml {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.btn-goml-black {
+  background-color: var(--goml-black);
+  color: var(--goml-white);
+}
+
+.btn-goml-black:hover {
+  background-color: #262626;
+  transform: translateY(-1px);
+}
+
+.btn-goml-orange {
+  background-color: var(--goml-orange);
+  color: var(--goml-white);
+}
+
+.btn-goml-orange:hover {
+  background-color: var(--goml-orange-hover);
+  transform: translateY(-1px);
+}
+
+.btn-goml-outline {
+  background-color: var(--goml-white);
+  color: var(--goml-black);
+  border-color: #e5e5e5;
+}
+
+.btn-goml-outline:hover {
+  border-color: var(--goml-orange);
+  color: var(--goml-orange);
+}
+
+.btn-goml-sm {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  border-radius: 9999px;
+}
+
+/* GoML Strip Sections (NO CARDS!) */
+.goml-section {
+  border-bottom: 1px solid #e5e5e5;
+  padding: 3rem 0;
+}
+
+.goml-container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* GoML Metric Comparisons Ribbon */
+.metric-stripe {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--goml-white);
+}
+
+.metric-stripe-col {
+  padding: 2.25rem 2rem;
+  border-right: 1px solid #e5e5e5;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.metric-stripe-col:last-child {
+  border-right: none;
+}
+
+.metric-stripe-col:hover {
+  background: #fdfaf7;
+}
+
+.metric-stripe-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--goml-orange);
+  margin-bottom: 0.5rem;
+}
+
+.metric-stripe-val {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--goml-black);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.metric-stripe-desc {
+  font-size: 0.9rem;
+  color: var(--goml-gray-600);
+  line-height: 1.4;
+}
+
+.metric-stripe-legacy {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #e5e5e5;
+  font-size: 0.8rem;
+  color: var(--goml-gray-500);
+}
+
+/* Table Design (NO CARDS - Enterprise Tabular UI) */
+.goml-table-wrapper {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.goml-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.goml-table th {
+  background: #f8fafc;
+  color: var(--goml-gray-700);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e5e5e5;
+  border-top: none;
+}
+
+.goml-table td {
+  padding: 1.15rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--goml-gray-900);
+  vertical-align: middle;
+}
+
+.goml-table tr:last-child td {
+  border-bottom: none;
+}
+
+.goml-table tr:hover td {
+  background-color: #fafbfc;
+}
+
+/* Clean Badges */
+.goml-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  line-height: 1;
+}
+
+.goml-badge-cleared {
+  background: var(--goml-success-bg);
+  color: var(--goml-success);
+  border: 1px solid var(--goml-success-border);
+}
+
+.goml-badge-risk {
+  background: var(--goml-warning-bg);
+  color: var(--goml-warning);
+  border: 1px solid var(--goml-warning-border);
+}
+
+.goml-badge-critical {
+  background: var(--goml-danger-bg);
+  color: var(--goml-danger);
+  border: 1px solid var(--goml-danger-border);
+}
+
+.goml-badge-orange {
+  background: var(--goml-orange-light);
+  color: var(--goml-orange);
+  border: 1px solid var(--goml-orange-border);
+}
+
+.goml-badge-neutral {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* Forms */
+.goml-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.925rem;
+  font-family: inherit;
+  color: var(--goml-dark);
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.goml-input:focus {
+  outline: none;
+  border-color: var(--goml-orange);
+  box-shadow: 0 0 0 3px rgba(237, 125, 49, 0.15);
+}
+
+/* Marquee Ribbon */
+.marquee-ribbon {
+  background: #f9fafb;
+  border-top: 1px solid #e5e5e5;
+  border-bottom: 1px solid #e5e5e5;
+  padding: 0.85rem 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-content {
+  display: inline-flex;
+  gap: 3rem;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--goml-gray-600);
+}
+
+.marquee-content span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.marquee-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--goml-orange);
+}
+
+/* Modals */
+.goml-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+}
+
+.goml-modal-content {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2);
+  padding: 2.25rem;
+}
+
+/* Print Certificate */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .cert-container {
+    box-shadow: none !important;
+    border: 2px solid #ED7D31 !important;
+  }
+}

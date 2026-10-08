@@ -1,0 +1,36 @@
+# Node
+node_modules/
+dist/
+.npm/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.conda/
+*.egg-info/
+.pytest_cache/
+
+# Databases & local uploads
+*.db
+*.sqlite
+uploads/*
+!uploads/.gitkeep
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+
+# Vercel & IDE
+.vercel/
+.idea/
+.vscode/
+*.swp
+
+.vercel
