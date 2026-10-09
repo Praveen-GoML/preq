@@ -120,15 +120,15 @@ export const CopilotDrawer = ({ isOpen, onClose, activeProjectId, onAddItemFromC
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div style={{
-              background: '#fff3eb',
-              border: '1px solid #fcd9c2',
+              background: '#F4F4F5',
+              border: '1px solid #E4E4E7',
               padding: '0.5rem',
               borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <Sparkles size={18} color="#ED7D31" />
+              <Sparkles size={18} color="#0F172A" />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -216,14 +216,14 @@ export const CopilotDrawer = ({ isOpen, onClose, activeProjectId, onAddItemFromC
                 width: '30px',
                 height: '30px',
                 borderRadius: '50%',
-                background: m.role === 'user' ? '#111827' : '#fff3eb',
-                border: m.role === 'user' ? 'none' : '1px solid #fcd9c2',
+                background: m.role === 'user' ? '#111827' : '#F4F4F5',
+                border: m.role === 'user' ? 'none' : '1px solid #E4E4E7',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                {m.role === 'user' ? <User size={15} color="white" /> : <Bot size={15} color="#ED7D31" />}
+                {m.role === 'user' ? <User size={15} color="white" /> : <Bot size={15} color="#0F172A" />}
               </div>
 
               <div style={{

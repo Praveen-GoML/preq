@@ -11,14 +11,14 @@ class CategoryScore(BaseModel):
 class ChecklistItemOut(BaseModel):
     id: str
     project_id: str
-    category: str
-    name: str
-    description: str
-    owner: str
-    is_critical: bool
-    due_date: str
-    status: str
-    expected_evidence: str
+    category: Optional[str] = "General"
+    name: Optional[str] = "Prerequisite Milestone"
+    description: Optional[str] = ""
+    owner: Optional[str] = "DevOps Lead"
+    is_critical: bool = False
+    due_date: Optional[str] = "TBD"
+    status: str = "Pending"
+    expected_evidence: Optional[str] = ""
     evidence_url: Optional[str] = None
     evidence_file: Optional[str] = None
     evidence_notes: Optional[str] = None
@@ -39,16 +39,19 @@ class ChecklistItemOut(BaseModel):
 
 class ProjectOut(BaseModel):
     id: str
-    name: str
-    description: str
-    client_name: str
-    client_email: str
-    type: str
-    industry: str
-    deployment: str
-    target_kickoff_date: str
-    status: str
-    score: int
+    name: Optional[str] = "Enterprise Initiative"
+    description: Optional[str] = ""
+    client_name: Optional[str] = "Enterprise Client"
+    client_email: Optional[str] = "sponsor@client.com"
+    type: Optional[str] = "GenAI / LLM Application"
+    industry: Optional[str] = "BFSI (Banking & Financial Services)"
+    deployment: Optional[str] = "AWS Cloud"
+    target_kickoff_date: Optional[str] = "2026-10-23"
+    status: str = "In Progress"
+    score: int = 0
+    internal_review_status: str = "Pending Internal Review (Akshay & Thasleema)"
+    has_brd: bool = False
+    proposal_filename: Optional[str] = None
     total_items: int = 0
     verified_items: int = 0
     critical_blockers: int = 0

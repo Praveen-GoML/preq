@@ -7,12 +7,12 @@ import {
   ExternalLink, Key, Check, Send, AlertTriangle, Copy,
   Layers, Info, LogOut, Sparkles, CheckSquare, Square,
   Zap, Paperclip, Filter, Search, ArrowUpRight, User, Share2,
-  ChevronDown, ChevronRight, HelpCircle, ShieldAlert, KeyRound, Calendar, RefreshCw
+  ChevronDown, ChevronRight, HelpCircle, ShieldAlert, KeyRound, 
+  Calendar, RefreshCw, X, Boxes, Settings, Database, Network, FileCheck2
 } from 'lucide-react';
 import { SubmitEvidenceModal } from '../components/SubmitEvidenceModal';
 import { WeeklyPlanner } from '../components/WeeklyPlanner';
 import { getCredentialGuidance, fetchDynamicCredentialGuidance } from '../utils/credentialGuide';
-
 import { API_URL } from '../apiConfig';
 
 // Official GoML PreQ Logo (NO EMOJIS)
@@ -25,7 +25,7 @@ const GoMLPreQLogo = () => (
       fontSize: '11px',
       fontWeight: 800,
       padding: '2px 8px',
-      borderRadius: '6px',
+      borderRadius: '4px',
       letterSpacing: '0.04em'
     }}>
       PreQ
@@ -60,56 +60,14 @@ const TeamsLogo = () => (
   </svg>
 );
 
-// Helper: Determine precise milestone phase (Pre-Kickoff vs Post-Kickoff Week 1, 2, 3)
-const getItemPhase = (item, index) => {
-  if (item.is_critical || (item.category === 'Security' || item.category === 'Compliance' || index < 3)) {
-    return {
-      phase: 'PRE_KICKOFF',
-      label: 'Pre-Kickoff',
-      sublabel: 'Day-1 Gatekeeper',
-      badgeBg: '#FFF7F0',
-      badgeColor: '#ED7D31',
-      badgeBorder: '#FCD9C2'
-    };
-  }
-  if (index < 6) {
-    return {
-      phase: 'POST_W1',
-      label: 'Post-Kickoff: W1',
-      sublabel: 'Week 1 Staging',
-      badgeBg: '#EFF6FF',
-      badgeColor: '#2563EB',
-      badgeBorder: '#BFDBFE'
-    };
-  }
-  if (index < 9) {
-    return {
-      phase: 'POST_W2',
-      label: 'Post-Kickoff: W2',
-      sublabel: 'Week 2 Integration',
-      badgeBg: '#F5F3FF',
-      badgeColor: '#7C3AED',
-      badgeBorder: '#DDD6FE'
-    };
-  }
-  return {
-    phase: 'POST_W3',
-    label: 'Post-Kickoff: W3',
-    sublabel: 'Week 3 Sign-Off',
-    badgeBg: '#F3F4F6',
-    badgeColor: '#4B5563',
-    badgeBorder: '#E5E7EB'
-  };
-};
-
 // Helper: Actionable 3-step guide for client to fulfill the requirement
 const getItemSteps = (item) => {
   const name = (item.name || '').toLowerCase();
   const cat = (item.category || '').toLowerCase();
 
-  if (name.includes('key') || name.includes('credential') || name.includes('token') || cat === 'security' || cat === 'integration') {
+  if (name.includes('key') || name.includes('credential') || name.includes('token') || name.includes('bedrock') || name.includes('iam') || cat === 'security' || cat === 'integration') {
     return [
-      { step: 1, title: 'Locate or Generate Service Credentials', desc: 'Access your cloud portal (GCP, AWS, OpenAI, or 1Password) and provision a dedicated service credential.' },
+      { step: 1, title: 'Locate or Generate Service Credentials', desc: 'Access your cloud portal (AWS, GCP, OpenAI, or 1Password) and provision a dedicated service credential.' },
       { step: 2, title: 'Configure Security & Ingress Whitelisting', desc: 'Enforce read-only scope and whitelist goML staging ingress IP (34.120.45.10/32).' },
       { step: 3, title: 'Submit Details & Complete Verification', desc: 'Click "Provide Handover" below to enter masked credentials or dispatch via Slack/Teams for GoML clearance.' }
     ];
@@ -139,14 +97,12 @@ const getItemSteps = (item) => {
 const renderFormattedInstruction = (text) => {
   if (!text) return null;
 
-  // Split by markdown bold (**text**), URLs (http/https), backticks (`code`), or path tokens
   const regex = /(\*\*[^*]+\*\*|https?:\/\/[^\s,)]+|`[^`]+`|\/[\w/.-]+)/g;
   const parts = text.split(regex);
 
   return parts.map((part, i) => {
     if (!part) return null;
 
-    // Bold token (**text**) -> styled UI badge
     if (part.startsWith('**') && part.endsWith('**')) {
       const content = part.slice(2, -2);
       return (
@@ -170,7 +126,6 @@ const renderFormattedInstruction = (text) => {
       );
     }
 
-    // Monospace code token (`code` or path like /prod/db/creds)
     if (part.startsWith('`') && part.endsWith('`')) {
       const content = part.slice(1, -1);
       return (
@@ -212,7 +167,6 @@ const renderFormattedInstruction = (text) => {
       );
     }
 
-    // URL token -> styled external link
     if (part.startsWith('http://') || part.startsWith('https://')) {
       return (
         <a
@@ -236,37 +190,36 @@ const renderFormattedInstruction = (text) => {
   });
 };
 
-// Helper: Make descriptions concise and punchy
-const formatConciseDesc = (desc) => {
-  if (!desc) return 'Complete and verify this prerequisite deliverable to ensure smooth Day-1 project execution.';
-  // Trim to first 2 sentences if overly long
-  const sentences = desc.split(/(?<=[.?!])\s+/);
-  if (sentences.length > 2) {
-    return sentences.slice(0, 2).join(' ');
+// Helper: format kickoff date to "Oct 22, 2026" style matching screenshot
+const formatKickoffDate = (dateStr) => {
+  try {
+    const d = dateStr ? new Date(dateStr) : new Date('2026-10-22');
+    if (isNaN(d.getTime())) return 'Oct 22, 2026';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch (e) {
+    return 'Oct 22, 2026';
   }
-  return desc;
 };
 
 export const ClientPortal = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const isInternalPreview = searchParams.get('internal') === 'true';
 
   const [project, setProject] = useState(null);
   const [checklist, setChecklist] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitModalItem, setSubmitModalItem] = useState(null);
-  const [filterTab, setFilterTab] = useState('ALL'); // 'ALL' | 'PRE_KICKOFF' | 'POST_W1' | 'POST_W2_3' | 'PENDING' | 'CLEARED'
-  const [portalView, setPortalView] = useState('CHECKLIST'); // 'CHECKLIST' | 'PLANNER'
+  const [filterTab, setFilterTab] = useState('ALL'); // 'ALL' | 'BLOCKERS' | 'PENDING' | 'CLEARED'
+  const [portalView, setPortalView] = useState(() => searchParams.get('tab') === 'checklist' ? 'CHECKLIST' : 'PLANNER'); // 'CHECKLIST' | 'PLANNER'
+  const [activeSubTab, setActiveSubTab] = useState('Overview'); // 'Overview' | 'Scope of Work' | 'Architecture' | 'Milestones' | 'Team' | 'Artifacts'
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [globalToast, setGlobalToast] = useState('');
   const [showDelegation, setShowDelegation] = useState(false);
   const [copiedDelegation, setCopiedDelegation] = useState(false);
   const [dynamicGuide, setDynamicGuide] = useState(null);
-  const [isScrapingLive, setIsScrapingLive] = useState(false);
 
   const triggerToast = (msg) => {
     setGlobalToast(msg);
@@ -279,22 +232,6 @@ export const ClientPortal = () => {
     setCopiedDelegation(true);
     triggerToast('Copied ready-to-send IT delegation message!');
     setTimeout(() => setCopiedDelegation(false), 2500);
-  };
-
-  const handleRefreshLiveScrape = async () => {
-    if (!activeItem) return;
-    setIsScrapingLive(true);
-    try {
-      const fresh = await fetchDynamicCredentialGuidance(activeItem, true);
-      if (fresh) {
-        setDynamicGuide(fresh);
-        triggerToast('Re-scraped official docs & synthesized live instructions!');
-      }
-    } catch (e) {
-      triggerToast('Updated with latest guidance.');
-    } finally {
-      setIsScrapingLive(false);
-    }
   };
 
   // Asynchronously fetch dynamic web-scraped guide whenever activeItem changes
@@ -311,15 +248,28 @@ export const ClientPortal = () => {
   }, [activeItem?.id]);
 
   const handleToggleCheck = async (e, item) => {
-    e.stopPropagation();
+    e?.stopPropagation();
     if (item.is_locked) {
       alert("This prerequisite is locked pending completion of earlier dependencies.");
       return;
     }
-    const nextStatus = item.status === 'Verified' ? 'Pending' : item.status === 'Submitted' ? 'Verified' : 'Submitted';
+
+    // If milestone is already verified by goML Engineering
+    if (item.status === 'Verified') {
+      triggerToast('Milestone is verified & cleared by goML Engineering.');
+      return;
+    }
+
+    // Client transitions between Pending and Submitted (In Review for goML)
+    const nextStatus = item.status === 'Submitted' ? 'Pending' : 'Submitted';
     try {
       await axios.put(`${API_URL}/items/${item.id}`, { status: nextStatus });
       fetchProjectData();
+      if (nextStatus === 'Submitted') {
+        triggerToast(`Submitted "${item.name}" for goML Engineering review!`);
+      } else {
+        triggerToast(`Moved "${item.name}" back to Pending.`);
+      }
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.detail || "Could not update status.");
@@ -351,9 +301,22 @@ export const ClientPortal = () => {
   };
 
   useEffect(() => {
+    let isMounted = true;
     fetchProjectData();
-    const interval = setInterval(fetchProjectData, 6000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (isMounted) fetchProjectData();
+    }, 2000);
+
+    const onFocus = () => {
+      if (isMounted) fetchProjectData();
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [id]);
 
   if (loading && !project) {
@@ -364,12 +327,12 @@ export const ClientPortal = () => {
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'column',
-        background: 'radial-gradient(120% 80% at 50% 0%, #FFF8F3 0%, #FAF5F0 50%, #F5ECE5 100%)',
+        background: '#F8FAFC',
         fontFamily: 'Inter, sans-serif'
       }}>
         <Loader2 className="animate-spin" size={42} color="#ED7D31" style={{ marginBottom: '1rem' }} />
-        <h3 style={{ color: '#111827', fontWeight: 700, letterSpacing: '-0.02em' }}>Loading Client Readiness Checklist...</h3>
-        <p style={{ color: '#5E5656', fontSize: '14px' }}>Connecting to Day-1 Verification Engine</p>
+        <h3 style={{ color: '#0F172A', fontWeight: 800, letterSpacing: '-0.02em' }}>Loading Client Readiness Checklist...</h3>
+        <p style={{ color: '#64748B', fontSize: '14px' }}>Connecting to Day-1 Verification Engine</p>
       </div>
     );
   }
@@ -377,15 +340,15 @@ export const ClientPortal = () => {
   if (!project) {
     return (
       <div style={{ padding: '6rem 2rem', textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', marginBottom: '8px' }}>Client Portal Initialization</h2>
-        <p style={{ color: '#5E5656', maxWidth: '500px', margin: '0 auto 1.5rem auto', fontSize: '14px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', marginBottom: '8px' }}>Client Portal Initialization</h2>
+        <p style={{ color: '#64748B', maxWidth: '500px', margin: '0 auto 1.5rem auto', fontSize: '14px' }}>
           Connecting to your Day-1 Readiness Checklist workspace. If you just created this project, please refresh or return to registry.
         </p>
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-          <button onClick={() => fetchProjectData()} className="btn-goml btn-goml-black" style={{ background: '#ED7D31', border: 'none' }}>
+          <button onClick={() => fetchProjectData()} style={{ background: '#ED7D31', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '9999px', fontWeight: 700, cursor: 'pointer' }}>
             Refresh Portal
           </button>
-          <button onClick={() => navigate('/')} className="btn-goml" style={{ background: '#F3F4F6', color: '#111827', border: '1px solid #E5E5E5' }}>
+          <button onClick={() => navigate('/')} style={{ background: '#F1F5F9', color: '#0F172A', border: '1px solid #CBD5E1', padding: '10px 20px', borderRadius: '9999px', fontWeight: 700, cursor: 'pointer' }}>
             Go to Projects Registry
           </button>
         </div>
@@ -394,9 +357,11 @@ export const ClientPortal = () => {
   }
 
   const completedCount = checklist.filter(i => i.status === 'Verified').length;
-  const underReviewCount = checklist.filter(i => i.status === 'Submitted' || i.status === 'Verifying').length;
-  const pendingCount = checklist.filter(i => i.status === 'Pending' || i.status === 'Rejected').length;
+  const criticalBlockersCount = checklist.filter(i => i.is_critical && i.status !== 'Verified').length;
+  const pendingCount = checklist.filter(i => i.status !== 'Verified').length;
   const progressPct = checklist.length > 0 ? Math.round((completedCount / checklist.length) * 100) : 0;
+  const totalWeeks = 4;
+  const avgVelocity = checklist.length > 0 ? (checklist.length / totalWeeks).toFixed(1) : '2.2';
 
   // Filter checklist tasks cleanly
   const filteredChecklist = checklist.filter((item) => {
@@ -405,7 +370,7 @@ export const ClientPortal = () => {
       item.category.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
-    if (filterTab === 'CRITICAL' || filterTab === 'PRE_KICKOFF') return item.is_critical && item.status !== 'Verified';
+    if (filterTab === 'BLOCKERS') return item.is_critical && item.status !== 'Verified';
     if (filterTab === 'PENDING') return item.status !== 'Verified';
     if (filterTab === 'CLEARED') return item.status === 'Verified';
     return true;
@@ -425,15 +390,14 @@ export const ClientPortal = () => {
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `• *Kick-off SLA Date:* ${project.target_kickoff_date || 'Target Day-1'}`,
       `• *Overall Readiness:* *${progressPct}% Cleared* (${completedCount} of ${checklist.length} Complete)`,
-      `• *Pending Gatekeepers:* ${pendingCount} remaining | *Under Review:* ${underReviewCount}`,
+      `• *Pending Gatekeepers:* ${pendingCount} remaining | *Critical Blockers:* ${criticalBlockersCount}`,
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
       `*Complete Prerequisite Status Matrix:*`
     ];
 
-    checklist.forEach((item, idx) => {
-      const phaseInfo = getItemPhase(item, idx);
+    checklist.forEach((item) => {
       const statusTag = item.status === 'Verified' ? '[CLEARED]' : item.status === 'Submitted' ? '[IN REVIEW]' : '[PENDING]';
-      lines.push(`${statusTag} *[${phaseInfo.label}]* *${item.name}* (\`${item.category}\`) — _${item.status}_ (Owner: ${item.owner || 'DevOps'})`);
+      lines.push(`${statusTag} *${item.name}* (\`${item.category}\`) — _${item.status}_ (Owner: ${item.owner || 'DevOps'})`);
     });
 
     lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -447,11 +411,9 @@ export const ClientPortal = () => {
   // GLOBAL EXPORT: Full Teams Summary (HTML Rich Table)
   const handleGlobalExportTeams = () => {
     let rows = '';
-    checklist.forEach((item, idx) => {
-      const phaseInfo = getItemPhase(item, idx);
+    checklist.forEach((item) => {
       const statusColor = item.status === 'Verified' ? '#16A34A' : item.status === 'Submitted' ? '#ED7D31' : '#6B7280';
       rows += `<tr>
-        <td style="padding: 7px 10px; border: 1px solid #E5E7EB; font-weight: 700; color: ${phaseInfo.badgeColor};">${phaseInfo.label}</td>
         <td style="padding: 7px 10px; border: 1px solid #E5E7EB;"><strong>${item.name}</strong></td>
         <td style="padding: 7px 10px; border: 1px solid #E5E7EB;">${item.category}</td>
         <td style="padding: 7px 10px; border: 1px solid #E5E7EB;">${item.owner || 'DevOps Lead'}</td>
@@ -465,7 +427,6 @@ export const ClientPortal = () => {
       <table style="border-collapse: collapse; width: 100%; font-size: 12.5px; border: 1px solid #E5E7EB;">
         <thead>
           <tr style="background: #111827; color: #ffffff;">
-            <th style="padding: 8px 10px; text-align: left;">PHASE STATUS</th>
             <th style="padding: 8px 10px; text-align: left;">PREREQUISITE DELIVERABLE</th>
             <th style="padding: 8px 10px; text-align: left;">CATEGORY</th>
             <th style="padding: 8px 10px; text-align: left;">OWNER</th>
@@ -510,13 +471,12 @@ export const ClientPortal = () => {
       `Target Kick-off Date: ${project.target_kickoff_date || 'Day-1'}`,
       ``,
       `========================================================================`,
-      `PRE-REQUISITE CHECKLIST MANIFEST (PRE-KICKOFF VS POST-KICKOFF)`,
+      `PRE-REQUISITE CHECKLIST MANIFEST`,
       `========================================================================`
     ];
 
-    checklist.forEach((item, idx) => {
-      const phaseInfo = getItemPhase(item, idx);
-      bodyLines.push(`[${phaseInfo.label}] ${item.name} (${item.category}) — STATUS: ${item.status.toUpperCase()} (Owner: ${item.owner || 'DevOps'})`);
+    checklist.forEach((item) => {
+      bodyLines.push(`[${item.is_critical ? 'DAY-1' : 'STAGING'}] ${item.name} (${item.category}) — STATUS: ${item.status.toUpperCase()} (Owner: ${item.owner || 'DevOps'})`);
     });
 
     bodyLines.push(`========================================================================`);
@@ -530,1168 +490,851 @@ export const ClientPortal = () => {
     triggerToast('Opened Email draft with full checklist manifest!');
   };
 
-  const activeIndex = activeItem ? checklist.findIndex(i => i.id === activeItem.id) : 0;
-  const activePhase = activeItem ? getItemPhase(activeItem, activeIndex >= 0 ? activeIndex : 0) : null;
-  const activeSteps = activeItem ? getItemSteps(activeItem) : [];
   const credGuide = dynamicGuide || (activeItem ? getCredentialGuidance(activeItem) : null);
+  const activeSteps = credGuide?.quickSteps?.map(s => ({ step: s.num, title: s.action, desc: s.detail })) || (activeItem ? getItemSteps(activeItem) : []);
+
+  // Compute initials
+  const clientInitials = (project.client_name || 'Client Sponsor')
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'CS';
 
   return (
     <div style={{
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      background: '#FFFFFF',
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      letterSpacing: '-0.015em'
+      background: '#F8FAFC',
+      fontFamily: '"Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      color: '#0F172A'
     }}>
 
       {/* GLOBAL TOAST NOTIFICATION */}
       {globalToast && (
         <div style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          background: 'linear-gradient(135deg, #1E1B2E 0%, #0E0A1A 100%)',
+          top: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#0F172A',
           color: '#ffffff',
-          padding: '12px 20px',
+          padding: '10px 22px',
           borderRadius: '100px',
           fontSize: '13px',
           fontWeight: 700,
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+          zIndex: 10000,
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          zIndex: 9999,
-          border: '1px solid #ED7D31'
+          border: '1px solid rgba(255,255,255,0.1)'
         }}>
-          <Sparkles size={16} color="#ED7D31" />
+          <CheckCircle size={16} color="#10B981" />
           <span>{globalToast}</span>
         </div>
       )}
 
-      {/* 1. DEDICATED CLIENT TOP NAVBAR (aiMatic by goML branded — NO EMOJIS) */}
+      {/* BEGIN: TopNavigation (Header) */}
+      {/* BEGIN: TopNavigation (Header) */}
       <header style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #E5E7EB',
-        padding: '0 2.5rem',
-        height: '68px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
         position: 'sticky',
         top: 0,
-        zIndex: 100,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        zIndex: 40,
+        background: '#FFFFFF',
+        borderBottom: '1px solid #E2E8F0',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
       }}>
-        {/* Left: GoML PreQ logo & Client Portal Tag */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <GoMLPreQLogo />
-          <div style={{ width: '1px', height: '22px', background: '#E5E7EB' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <span style={{
-              background: '#FFF7F0',
-              color: '#ED7D31',
-              border: '1px solid #FCD9C2',
-              borderRadius: '100px',
-              padding: '3px 12px',
-              fontSize: '12px',
-              fontWeight: 800,
-              letterSpacing: '0.02em',
-              textTransform: 'uppercase'
-            }}>
-              Client Checklist Portal
-            </span>
-            <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>
-              {project.client_name}
-            </span>
-          </div>
-        </div>
-
-        {/* Center: Target Kick-off SLA */}
         <div style={{
+          maxWidth: '1720px',
+          margin: '0 auto',
+          padding: '0 1.5rem',
+          height: '56px',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          background: '#F9FAFB',
-          border: '1px solid #E5E7EB',
-          padding: '4px 14px',
-          borderRadius: '100px',
-          fontSize: '13px'
+          justifyContent: 'space-between',
+          gap: '1.25rem'
         }}>
-          <Clock size={14} color="#ED7D31" />
-          <span style={{ color: '#4B5563' }}>Target Day-1 Kick-off:</span>
-          <strong style={{ color: '#111827', fontWeight: 800 }}>{project.target_kickoff_date || 'Day-1'}</strong>
-        </div>
+          {/* Left side: Logo, Client, Kickoff Date, Top Nav Links */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+              <GoMLPreQLogo />
+            </Link>
 
-        {/* Right: Client Profile Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{
-            background: '#ffffff',
-            border: '1px solid #E5E7EB',
-            borderRadius: '100px',
-            padding: '3px 14px 3px 6px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
+            <div style={{ height: '14px', width: '1px', background: '#E2E8F0' }} />
+
+            {/* Client Name & Kickoff Date */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{
+                fontSize: '13.5px',
+                fontWeight: 700,
+                color: '#0F172A',
+                letterSpacing: '-0.01em'
+              }}>
+                {project.client_name || 'MovilVentas'}
+              </span>
+
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '11.5px',
+                color: '#64748B',
+                fontWeight: 500,
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                padding: '2px 8px',
+                borderRadius: '4px'
+              }}>
+                <Calendar size={12} color="#94A3B8" />
+                <span>Kick-off {formatKickoffDate(project.target_kickoff_date)}</span>
+              </div>
+            </div>
+
+            <div style={{ height: '14px', width: '1px', background: '#E2E8F0' }} />
+
+            {/* In-header Navigation Tabs */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+              <button
+                type="button"
+                onClick={() => { setActiveSubTab('Overview'); setPortalView('CHECKLIST'); }}
+                style={{
+                  background: activeSubTab === 'Overview' && portalView === 'CHECKLIST' ? '#09090B' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 14px',
+                  fontWeight: activeSubTab === 'Overview' && portalView === 'CHECKLIST' ? 700 : 500,
+                  color: activeSubTab === 'Overview' && portalView === 'CHECKLIST' ? '#FFFFFF' : '#64748B',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Overview
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setActiveSubTab('Implementation Planner'); setPortalView('PLANNER'); }}
+                style={{
+                  background: portalView === 'PLANNER' || activeSubTab === 'Implementation Planner' ? '#09090B' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 14px',
+                  fontWeight: portalView === 'PLANNER' || activeSubTab === 'Implementation Planner' ? 700 : 500,
+                  color: portalView === 'PLANNER' || activeSubTab === 'Implementation Planner' ? '#FFFFFF' : '#64748B',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Implementation Planner
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setActiveSubTab('Technical Scope'); setPortalView('CHECKLIST'); }}
+                style={{
+                  background: activeSubTab === 'Technical Scope' ? '#09090B' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 14px',
+                  fontWeight: activeSubTab === 'Technical Scope' ? 700 : 500,
+                  color: activeSubTab === 'Technical Scope' ? '#FFFFFF' : '#64748B',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Technical Scope
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setActiveSubTab('Architecture'); setPortalView('CHECKLIST'); }}
+                style={{
+                  background: activeSubTab === 'Architecture' ? '#09090B' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 14px',
+                  fontWeight: activeSubTab === 'Architecture' ? 700 : 500,
+                  color: activeSubTab === 'Architecture' ? '#FFFFFF' : '#64748B',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Architecture
+              </button>
+            </div>
+          </div>
+
+          {/* Right side: Sponsor profile, session verification, action icons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Client Sponsor Tag */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              color: '#334155',
+              padding: '4px 12px',
+              background: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '9999px'
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ED7D31', display: 'inline-block' }} />
+              <strong style={{ color: '#0F172A' }}>{project.client_name || 'MovilVentas'}</strong>
+              <span style={{ color: '#64748B' }}>• Client Sponsor</span>
+            </div>
+
+            {/* Verification Status */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 12px',
+              borderRadius: '9999px',
+              border: '1px solid #E2E8F0',
+              background: '#FFFFFF',
+              color: '#0F172A',
+              fontSize: '11px',
+              fontWeight: 800,
+              letterSpacing: '0.04em'
+            }}>
+              <CheckCircle size={13} color="#000000" strokeWidth={2.5} />
+              <span>VERIFIED SESSION</span>
+            </div>
+
+            {/* Slack / Hash Button */}
+            <button
+              type="button"
+              onClick={handleGlobalExportSlack}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                background: '#FFFFFF',
+                color: '#64748B',
+                borderRadius: '6px',
+                border: '1px solid #E2E8F0',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 700
+              }}
+              title="Share Slack Report"
+            >
+              #
+            </button>
+
+            {/* Alert / Bell Button */}
+            <button
+              type="button"
+              onClick={() => {}}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                background: '#FFFFFF',
+                color: '#64748B',
+                borderRadius: '6px',
+                border: '1px solid #E2E8F0',
+                cursor: 'pointer'
+              }}
+              title="Alerts"
+            >
+              <AlertTriangle size={13} color="#64748B" />
+            </button>
+
+            {/* Share Link Button */}
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                background: '#FFFFFF',
+                color: '#64748B',
+                borderRadius: '6px',
+                border: '1px solid #E2E8F0',
+                cursor: 'pointer'
+              }}
+              title="Share Portal Link"
+            >
+              {copiedLink ? <Check size={13} color="#16A34A" /> : <Share2 size={13} color="#64748B" />}
+            </button>
+
+            {/* User Profile Avatar in Black Circle with Initials */}
             <div style={{
               width: '28px',
               height: '28px',
               borderRadius: '50%',
-              background: '#FFF7F0',
-              color: '#ED7D31',
-              fontWeight: 700,
-              fontSize: '11px',
+              background: '#09090B',
+              color: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '1px solid #FCD9C2'
+              fontSize: '11px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              letterSpacing: '0.02em'
             }}>
-              PK
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-              <span style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>Praveen Karuppusamy</span>
-              <span style={{ fontSize: '11px', color: '#6B7280' }}>Client Technical Sponsor</span>
+              {clientInitials || 'MV'}
             </div>
           </div>
-
-          {isInternalPreview ? (
-            <button
-              onClick={() => navigate(`/dashboard/${id}`)}
-              style={{
-                background: '#ffffff',
-                border: '1px solid #E5E7EB',
-                borderRadius: '8px',
-                padding: '0.45rem 0.85rem',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#374151',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              title="Switch to GoML Team Engineering Cockpit"
-            >
-              <span>GoML Cockpit</span>
-              <ExternalLink size={12} />
-            </button>
-          ) : (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              color: '#16A34A',
-              background: '#F0FDF4',
-              border: '1px solid #DCFCE7',
-              padding: '5px 12px',
-              borderRadius: '100px',
-              fontWeight: 700
-            }}>
-              <ShieldCheck size={14} color="#16A34A" />
-              <span>Verified Client Session</span>
-            </div>
-          )}
         </div>
       </header>
 
-      {/* 2. STEPPER PROGRESS BAR */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.75rem',
-        padding: '1.5rem 1rem 0.75rem',
-        flexShrink: 0,
-        flexWrap: 'wrap'
-      }}>
-        <div style={{
-          background: '#F9FAFB',
-          border: '1px solid #E5E7EB',
-          color: '#4B5563',
-          borderRadius: '100px',
-          padding: '5px 16px',
-          fontSize: '13px',
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '5px'
-        }}>
-          <Check size={13} strokeWidth={3} color="#10B981" />
-          <span>1. Initiative Scope</span>
-        </div>
-
-        <div style={{
-          background: 'linear-gradient(135deg, #1E1B2E 0%, #0E0A1A 100%)',
-          border: '1px solid #0E0A1A',
-          color: '#ffffff',
-          borderRadius: '100px',
-          padding: '6px 20px',
-          fontSize: '13px',
-          fontWeight: 700,
-          boxShadow: '0 4px 12px rgba(14, 10, 26, 0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ED7D31' }} />
-          <span>2. Client Deliverables Checklist</span>
-        </div>
-
-        <div style={{
-          background: '#ffffff',
-          border: '1px solid #E5E7EB',
-          color: '#9CA3AF',
-          borderRadius: '100px',
-          padding: '5px 16px',
-          fontSize: '13px',
-          fontWeight: 500
-        }}>
-          <span>3. Day-1 Kick-off Clearance</span>
-        </div>
-      </div>
-
-      {/* 3. MAIN CLIENT CHECKLIST (Completely Flat & Seamless Plain UI - No Card Backgrounds) */}
+      {/* BEGIN: MainContentArea */}
       <main style={{
-        maxWidth: '1320px',
+        flex: 1,
+        maxWidth: '1440px',
         width: '100%',
         margin: '0 auto',
-        padding: '1.5rem 2rem 4rem',
+        padding: '1.75rem 2rem 3rem 2rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1.5rem',
-        background: 'transparent'
+        gap: '1.75rem',
+        boxSizing: 'border-box'
       }}>
 
-        {/* Hero Section & Global Export Actions */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.25rem', paddingBottom: '1.25rem', borderBottom: '1px solid #E2E8F0' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
-              <span style={{
-                background: '#FFF7F0',
-                color: '#ED7D31',
-                border: '1px solid #FCD9C2',
-                borderRadius: '100px',
-                padding: '2px 10px',
-                fontSize: '11px',
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.02em'
-              }}>
-                {project.client_name}
-              </span>
-              <span style={{
-                background: '#F1F5F9',
-                color: '#475569',
-                borderRadius: '100px',
-                padding: '2px 10px',
-                fontSize: '11px',
-                fontWeight: 600
-              }}>
-                {project.type}
-              </span>
-              <span style={{
-                background: '#F1F5F9',
-                color: '#475569',
-                borderRadius: '100px',
-                padding: '2px 10px',
-                fontSize: '11px',
-                fontWeight: 600
-              }}>
-                {project.deployment}
-              </span>
-            </div>
-
-            <h1 style={{
-              fontSize: '1.85rem',
-              fontWeight: 800,
-              color: '#0F172A',
-              margin: '0 0 0.35rem 0',
-              letterSpacing: '-0.025em',
-              lineHeight: 1.2
-            }}>
-              Client Readiness Checklist
-            </h1>
-            <p style={{
-              color: '#475569',
-              fontSize: '14px',
-              margin: 0,
-              lineHeight: 1.55,
-              maxWidth: '780px'
-            }}>
-              {formatConciseDesc(project.description)} Review deliverables, verify requirements, or export status to your engineering channels.
-            </p>
-          </div>
-
-          {/* GLOBAL EXPORT BUTTONS (SLACK, TEAMS, EMAIL, SHARE) - CLEAN INLINE */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Share2 size={12} color="#ED7D31" /> Export & Share:
-            </span>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              {/* Global Slack Export */}
-              <button
-                type="button"
-                onClick={handleGlobalExportSlack}
-                style={{
-                  background: '#1E1E24',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-                title="Copy complete checklist formatted for Slack"
-              >
-                <SlackLogo />
-                <span>Slack</span>
-              </button>
-
-              {/* Global Teams Export */}
-              <button
-                type="button"
-                onClick={handleGlobalExportTeams}
-                style={{
-                  background: '#464EB8',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-                title="Copy complete checklist HTML table for Microsoft Teams"
-              >
-                <TeamsLogo />
-                <span>Teams</span>
-              </button>
-
-              {/* Global Email Export */}
-              <button
-                type="button"
-                onClick={handleGlobalExportEmail}
-                style={{
-                  background: '#ffffff',
-                  color: '#0F172A',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-                title="Open email client draft with full checklist"
-              >
-                <Send size={12} color="#ED7D31" />
-                <span>Email</span>
-              </button>
-
-              {/* Copy Portal Link */}
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                style={{
-                  background: '#ffffff',
-                  color: '#475569',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '6px',
-                  padding: '6px 10px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                title="Copy direct portal link"
-              >
-                {copiedLink ? <Check size={12} color="#10B981" /> : <Copy size={12} />}
-                <span>{copiedLink ? 'Copied' : 'Link'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* PRIMARY VIEW SWITCHER: CHECKLIST VIEW VS WEEKLY PLANNER ROADMAP */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          width: 'fit-content'
-        }}>
-          <button
-            type="button"
-            onClick={() => setPortalView('CHECKLIST')}
-            style={{
-              background: portalView === 'CHECKLIST' ? '#0F172A' : '#F1F5F9',
-              color: portalView === 'CHECKLIST' ? '#ffffff' : '#475569',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '7px 16px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <CheckSquare size={14} color={portalView === 'CHECKLIST' ? '#ED7D31' : '#64748B'} />
-            <span>Checklist Workspace</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPortalView('PLANNER')}
-            style={{
-              background: portalView === 'PLANNER' ? '#0F172A' : '#F1F5F9',
-              color: portalView === 'PLANNER' ? '#ffffff' : '#475569',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '7px 16px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <Calendar size={14} color={portalView === 'PLANNER' ? '#ED7D31' : '#64748B'} />
-            <span>Weekly Implementation Planner</span>
-            <span style={{
-              background: portalView === 'PLANNER' ? '#ED7D31' : '#FFF7F0',
-              color: portalView === 'PLANNER' ? '#ffffff' : '#ED7D31',
-              border: portalView === 'PLANNER' ? 'none' : '1px solid #FCD9C2',
-              fontSize: '10px',
-              fontWeight: 700,
-              padding: '1px 6px',
-              borderRadius: '100px'
-            }}>
-              SOW Roadmap
-            </span>
-          </button>
-        </div>
-
+        {/* Dynamic View: Weekly Implementation Planner vs Checklist Workspace */}
         {portalView === 'PLANNER' ? (
-          /* WEEKLY PLANNER TIMELINE & EXCEL MATRIX ROADMAP */
           <WeeklyPlanner
-            checklist={checklist}
             project={project}
+            checklist={checklist}
+            onItemUpdated={fetchProjectData}
+            onOpenSubmitModal={(item) => setSubmitModalItem(item)}
             onProvideHandover={(item) => setSubmitModalItem(item)}
             onToggleCheck={handleToggleCheck}
+            onSwitchToChecklist={() => setPortalView('CHECKLIST')}
+            portalView={portalView}
           />
         ) : (
-          /* CLEAN, PLAIN MINIMALIST CHECKLIST VIEW (NO CARDS) */
           <>
-              {/* Minimalist Progress & Filter Strip */}
-            <div style={{
+            {/* 1. TOP HERO CARD (Pre-Kickoff Client Readiness) */}
+            <section style={{
+              background: '#FFFFFF',
+              borderRadius: '12px',
+              border: '1px solid #E4E4E7',
+              padding: '1.75rem 2rem',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
               display: 'flex',
-              flexDirection: 'column',
-              gap: '0.85rem',
-              paddingBottom: '0.5rem'
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '2rem',
+              flexWrap: 'wrap'
             }}>
-              {/* Progress Bar & Counter */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F172A' }}>
-                    Readiness Progress:
-                  </span>
-                  <span style={{ fontSize: '13px', color: '#64748B' }}>
-                    <strong style={{ color: completedCount === checklist.length ? '#10B981' : '#ED7D31' }}>{completedCount}</strong> of {checklist.length} Complete ({progressPct}%)
-                  </span>
+              {/* Left Side Scope & Narrative */}
+              <div style={{ flex: 1, minWidth: '320px' }}>
+                <div style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#71717A',
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  marginBottom: '6px'
+                }}>
+                  SCOPE REF: {project.sow_ref || 'SOW-MV-2026-V2.4'} &bull; {project.type ? project.type.toUpperCase() : 'BEDROCK LLM ROUTING AGENT'}
                 </div>
-
-                <div style={{ flex: '1 1 200px', maxWidth: '300px', height: '6px', background: '#F1F5F9', borderRadius: '100px', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${progressPct}%`,
-                    height: '100%',
-                    background: progressPct === 100 ? '#10B981' : '#ED7D31',
-                    borderRadius: '100px',
-                    transition: 'width 0.4s ease'
-                  }} />
-                </div>
+                <h1 style={{
+                  fontSize: '1.85rem',
+                  fontWeight: 800,
+                  color: '#09090B',
+                  margin: '0 0 6px 0',
+                  letterSpacing: '-0.025em',
+                  lineHeight: 1.2
+                }}>
+                  Pre-Kickoff Client Readiness
+                </h1>
+                <p style={{
+                  fontSize: '13.5px',
+                  color: '#71717A',
+                  margin: 0,
+                  lineHeight: 1.5,
+                  maxWidth: '680px'
+                }}>
+                  All Day-1 blockers must be submitted and validated 48 hours prior to joint architectural sprint zero.
+                </p>
               </div>
 
-              {/* 4-Pill Filters & Search - BORDERLESS */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => setFilterTab('ALL')}
-                    style={{
-                      border: 'none',
-                      background: filterTab === 'ALL' ? '#0F172A' : '#F1F5F9',
-                      color: filterTab === 'ALL' ? '#ffffff' : '#475569',
-                      padding: '5px 14px',
-                      borderRadius: '100px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    All ({checklist.length})
-                  </button>
+              {/* Right Side KPIs */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem', flexShrink: 0 }}>
+                {/* Vertical Divider */}
+                <div style={{ height: '60px', width: '1px', background: '#F4F4F5' }} />
 
-                  <button
-                    onClick={() => setFilterTab('CRITICAL')}
-                    style={{
-                      border: 'none',
-                      background: filterTab === 'CRITICAL' || filterTab === 'PRE_KICKOFF' ? '#DC2626' : '#FEF2F2',
-                      color: filterTab === 'CRITICAL' || filterTab === 'PRE_KICKOFF' ? '#ffffff' : '#DC2626',
-                      padding: '5px 14px',
-                      borderRadius: '100px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <AlertTriangle size={13} color={filterTab === 'CRITICAL' || filterTab === 'PRE_KICKOFF' ? '#ffffff' : '#DC2626'} />
-                    <span>Day-1 Blockers ({checklist.filter(i => i.is_critical && i.status !== 'Verified').length})</span>
-                  </button>
-
-                  <button
-                    onClick={() => setFilterTab('PENDING')}
-                    style={{
-                      border: 'none',
-                      background: filterTab === 'PENDING' ? '#ED7D31' : '#FFF7F0',
-                      color: filterTab === 'PENDING' ? '#ffffff' : '#ED7D31',
-                      padding: '5px 14px',
-                      borderRadius: '100px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <Clock size={13} color={filterTab === 'PENDING' ? '#ffffff' : '#ED7D31'} />
-                    <span>Need Action ({checklist.filter(i => i.status !== 'Verified').length})</span>
-                  </button>
-
-                  <button
-                    onClick={() => setFilterTab('CLEARED')}
-                    style={{
-                      border: 'none',
-                      background: filterTab === 'CLEARED' ? '#10B981' : '#F1F5F9',
-                      color: filterTab === 'CLEARED' ? '#ffffff' : '#475569',
-                      padding: '5px 14px',
-                      borderRadius: '100px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <CheckCircle2 size={13} color={filterTab === 'CLEARED' ? '#ffffff' : '#10B981'} />
-                    <span>Cleared ({completedCount})</span>
-                  </button>
+                {/* Overall Clearance */}
+                <div>
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '3px' }}>
+                    OVERALL CLEARANCE
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                    <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#09090B' }}>
+                      {completedCount} <span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#71717A' }}>/ {checklist.length} Cleared</span>
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: '#71717A', fontWeight: 600, marginTop: '2px' }}>
+                    ({progressPct}%)
+                  </div>
                 </div>
 
-                {/* Search */}
-                <div style={{ position: 'relative' }}>
-                  <Search size={14} color="#94A3B8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                  <input
-                    type="text"
-                    placeholder="Search deliverables..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      padding: '6px 12px 6px 32px',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      outline: 'none',
-                      width: '200px',
-                      background: '#F1F5F9',
-                      color: '#0F172A'
-                    }}
-                  />
+                {/* Vertical Divider */}
+                <div style={{ height: '60px', width: '1px', background: '#F4F4F5' }} />
+
+                {/* Day-1 Blockers */}
+                <div>
+                  <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                    DAY-1 BLOCKERS
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ED7D31', display: 'inline-block' }} />
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ED7D31' }}>
+                      {criticalBlockersCount} Critical Pending
+                    </span>
+                  </div>
+                  {/* Mini Progress Bar */}
+                  <div style={{
+                    width: '130px',
+                    height: '6px',
+                    background: '#E4E4E7',
+                    borderRadius: '9999px',
+                    marginTop: '6px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${checklist.length ? Math.round(((checklist.length - criticalBlockersCount) / checklist.length) * 100) : 0}%`,
+                      height: '100%',
+                      background: '#ED7D31',
+                      borderRadius: '9999px'
+                    }} />
+                  </div>
                 </div>
+              </div>
+            </section>
+
+            {/* View Switcher Bar (Checklist vs Implementation Planner vs Technical Scope) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{
+                display: 'inline-flex',
+                padding: '3px',
+                background: '#FFFFFF',
+                borderRadius: '9999px',
+                border: '1px solid #E4E4E7',
+                gap: '3px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => { setPortalView('CHECKLIST'); setActiveSubTab('Overview'); }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 16px',
+                    borderRadius: '9999px',
+                    background: portalView === 'CHECKLIST' && activeSubTab === 'Overview' ? '#09090B' : 'transparent',
+                    color: portalView === 'CHECKLIST' && activeSubTab === 'Overview' ? '#FFFFFF' : '#71717A',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <CheckSquare size={13} />
+                  <span>Deliverables Checklist</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setPortalView('PLANNER'); setActiveSubTab('Implementation Planner'); }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 16px',
+                    borderRadius: '9999px',
+                    background: portalView === 'PLANNER' || activeSubTab === 'Implementation Planner' ? '#09090B' : 'transparent',
+                    color: portalView === 'PLANNER' || activeSubTab === 'Implementation Planner' ? '#FFFFFF' : '#71717A',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Calendar size={13} />
+                  <span>Implementation Planner</span>
+                </button>
+              </div>
+
+              <div style={{ fontSize: '12px', color: '#71717A', fontWeight: 600 }}>
+                {checklist.length} total milestones &bull; {criticalBlockersCount} Day-1 blockers
               </div>
             </div>
 
-            {/* ======================================================== */}
-            {/* FLAT 2-COLUMN PLAIN WORKSPACE (BORDERLESS, NO CARDS)      */}
-            {/* ======================================================== */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(320px, 380px) 1fr',
-              gap: '2.5rem',
-              alignItems: 'flex-start'
-            }}>
-              {/* 1. LEFT COLUMN: Flat Deliverables List */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                borderRight: '1px solid #F1F5F9',
-                paddingRight: '1.5rem',
-                maxHeight: 'calc(100vh - 200px)',
-                overflowY: 'auto'
-              }}>
+            {/* 2. CATEGORY-GROUPED DELIVERABLES CHECKLIST (Matching exact Screenshot Cards) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+              {filteredChecklist.length === 0 ? (
                 <div style={{
-                  padding: '0 4px 8px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  borderBottom: '1px solid #F8FAFC'
+                  background: '#FFFFFF',
+                  borderRadius: '12px',
+                  border: '1px solid #E4E4E7',
+                  padding: '3.5rem 2rem',
+                  textAlign: 'center',
+                  color: '#71717A',
+                  fontSize: '13.5px'
                 }}>
-                  <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Deliverables ({filteredChecklist.length})
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>
-                    Click to inspect
-                  </span>
-                </div>
-
-                {filteredChecklist.map((item) => {
-                  const isVerified = item.status === 'Verified';
-                  const isSelected = activeItem?.id === item.id;
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => setActiveItem(item)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '10px',
-                        padding: '10px 10px',
-                        borderRadius: '8px',
-                        borderLeft: isSelected ? '3px solid #ED7D31' : '3px solid transparent',
-                        background: isSelected ? '#F8FAFC' : 'transparent',
-                        cursor: 'pointer',
-                        transition: 'all 0.12s ease',
-                        marginBottom: '1px'
-                      }}
-                      onMouseOver={(e) => {
-                        if (!isSelected) e.currentTarget.style.background = '#F8FAFC';
-                      }}
-                      onMouseOut={(e) => {
-                        if (!isSelected) e.currentTarget.style.background = 'transparent';
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                        {/* Circular Checkbox */}
-                        <div
-                          onClick={(e) => handleToggleCheck(e, item)}
-                          title={isVerified ? "Click to mark pending" : "Click to mark verified"}
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            borderRadius: '50%',
-                            border: isVerified ? 'none' : '2px solid #CBD5E1',
-                            background: isVerified ? '#10B981' : 'transparent',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {isVerified && <Check size={11} strokeWidth={3} />}
-                        </div>
-
-                        {/* Title */}
-                        <span style={{
-                          fontSize: '13px',
-                          fontWeight: isSelected ? 700 : 500,
-                          color: isVerified ? '#94A3B8' : '#0F172A',
-                          textDecoration: isVerified ? 'line-through' : 'none',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {item.name}
-                        </span>
-                      </div>
-
-                      {/* Tag */}
-                      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {item.is_critical && !isVerified ? (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '2px',
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            color: '#DC2626',
-                            background: '#FEF2F2',
-                            padding: '1px 5px',
-                            borderRadius: '4px'
-                          }}>
-                            <AlertTriangle size={9} color="#DC2626" />
-                            <span>Day-1</span>
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '10.5px', color: '#64748B' }}>
-                            {item.category}
-                          </span>
-                        )}
-                        {isSelected && <ChevronRight size={13} color="#ED7D31" />}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* 2. RIGHT COLUMN: Flat Deliverable Workspace (Direct Canvas) */}
-              {activeItem ? (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1.25rem'
-                }}>
-                  {/* Title & Metadata Header (NO EMOJIS, SLEEK ICONS) */}
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                      {activeItem.status === 'Verified' ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          background: '#ECFDF5',
-                          color: '#059669',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          padding: '2px 10px',
-                          borderRadius: '100px'
-                        }}>
-                          <CheckCircle2 size={12} color="#059669" />
-                          <span>Verified & Cleared</span>
-                        </span>
-                      ) : activeItem.status === 'Submitted' ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          background: '#FFF7ED',
-                          color: '#ED7D31',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          padding: '2px 10px',
-                          borderRadius: '100px'
-                        }}>
-                          <Clock size={12} color="#ED7D31" />
-                          <span>Under Review</span>
-                        </span>
-                      ) : (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          background: '#F1F5F9',
-                          color: '#475569',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          padding: '2px 10px',
-                          borderRadius: '100px'
-                        }}>
-                          <Clock size={12} color="#475569" />
-                          <span>Pending Handover</span>
-                        </span>
-                      )}
-
-                      <span style={{ fontSize: '12px', color: '#94A3B8' }}>•</span>
-
-                      <span style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>
-                        {activeItem.category}
-                      </span>
-
-                      {activeItem.owner && (
-                        <>
-                          <span style={{ fontSize: '12px', color: '#94A3B8' }}>•</span>
-                          <span style={{ fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <User size={11} /> {activeItem.owner}
-                          </span>
-                        </>
-                      )}
-
-                      <span style={{ fontSize: '12px', color: '#94A3B8' }}>•</span>
-
-                      <span style={{ fontSize: '12px', color: '#64748B' }}>
-                        Due {activeItem.due_date || 'Day-1'}
-                      </span>
-
-                      {activeItem.is_critical && (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          fontSize: '11px',
-                          color: '#DC2626',
-                          background: '#FEF2F2',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          fontWeight: 700
-                        }}>
-                          <AlertTriangle size={11} color="#DC2626" />
-                          <span>Day-1 Gatekeeper</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0F172A', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
-                      {activeItem.name}
-                    </h2>
-
-                    <p style={{ fontSize: '13.5px', color: '#475569', margin: 0, lineHeight: 1.55 }}>
-                      {formatConciseDesc(activeItem.description)}
-                    </p>
-                  </div>
-
-                  {/* Subtle Hairline Divider */}
-                  <div style={{ height: '1px', background: '#E2E8F0' }} />
-
-                  {/* Step-by-Step Action Guide (Connected Formatted Stepper) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        How to Complete This Requirement
-                      </span>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {credGuide?.consoleUrl && (
-                          <a
-                            href={credGuide.consoleUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{
-                              background: '#0F172A',
-                              color: '#ffffff',
-                              padding: '5px 12px',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              textDecoration: 'none',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '5px'
-                            }}
-                          >
-                            <span>Open {credGuide.consoleName || 'Console'}</span>
-                            <ArrowUpRight size={13} color="#ED7D31" />
-                          </a>
-                        )}
-
-                        {credGuide?.sourceDocUrl && (
-                          <a
-                            href={credGuide.sourceDocUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{
-                              background: '#EFF6FF',
-                              color: '#2563EB',
-                              border: '1px solid #BFDBFE',
-                              padding: '5px 10px',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              textDecoration: 'none'
-                            }}
-                          >
-                            Official Docs ↗
-                          </a>
-                        )}
-
-                        {credGuide?.delegationMessage && (
-                          <button
-                            type="button"
-                            onClick={() => setShowDelegation(!showDelegation)}
-                            style={{
-                              background: '#F8FAFC',
-                              border: '1px solid #CBD5E1',
-                              color: '#475569',
-                              padding: '5px 10px',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {showDelegation ? 'Hide IT Request' : 'Delegate to IT Team ↗'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Connected Formatted Stepper Timeline */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0', marginTop: '4px' }}>
-                      {(() => {
-                        const stepsList = (credGuide && credGuide.quickSteps?.length > 0)
-                          ? credGuide.quickSteps.filter(s => s && (s.action || s.detail))
-                          : activeSteps;
-
-                        return stepsList.map((step, idx) => {
-                          const isLast = idx === stepsList.length - 1;
-                          const stepNum = step.num || (idx + 1);
-                          const title = step.action || step.title;
-                          const detail = step.detail || step.desc;
-
-                          return (
-                            <div key={idx} style={{ display: 'flex', gap: '14px', position: 'relative' }}>
-                              {/* Left Column: Number Node + Connector */}
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                                <div style={{
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  background: '#FFF7F0',
-                                  border: '1.5px solid #FCD9C2',
-                                  color: '#ED7D31',
-                                  fontSize: '11.5px',
-                                  fontWeight: 800,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  boxShadow: '0 1px 3px rgba(237, 125, 49, 0.1)'
-                                }}>
-                                  {stepNum}
-                                </div>
-                                {!isLast && (
-                                  <div style={{
-                                    width: '2px',
-                                    flex: 1,
-                                    minHeight: '26px',
-                                    background: '#F1F5F9',
-                                    margin: '4px 0'
-                                  }} />
-                                )}
-                              </div>
-
-                              {/* Right Column: Title & Formatted Description */}
-                              <div style={{ paddingBottom: isLast ? '0' : '14px', flex: 1 }}>
-                                <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F172A', marginBottom: '2px' }}>
-                                  {renderFormattedInstruction(title)}
-                                </div>
-                                {detail && (
-                                  <div style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6 }}>
-                                    {renderFormattedInstruction(detail)}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-
-                    {/* IT Delegation Template */}
-                    {showDelegation && credGuide?.delegationMessage && (
-                      <div style={{
-                        background: '#F8FAFC',
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '6px',
-                        padding: '10px 12px',
-                        marginTop: '8px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
-                            Email / Slack Message for IT Admin:
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyDelegation(credGuide.delegationMessage)}
-                            style={{
-                              background: '#ffffff',
-                              border: '1px solid #CBD5E1',
-                              borderRadius: '4px',
-                              padding: '2px 8px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {copiedDelegation ? 'Copied!' : 'Copy Template'}
-                          </button>
-                        </div>
-                        <div style={{ fontFamily: 'monospace', fontSize: '11.5px', color: '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
-                          {credGuide.delegationMessage}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Required Artifact Strip */}
-                  <div style={{
-                    marginTop: '0.25rem',
-                    background: '#FFFDFB',
-                    border: '1px solid #FCD9C2',
-                    borderLeft: '3px solid #ED7D31',
-                    borderRadius: '6px',
-                    padding: '10px 14px',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '10px'
-                  }}>
-                    <FileText size={16} color="#ED7D31" style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <div style={{ fontSize: '12.5px', color: '#334155', lineHeight: 1.5 }}>
-                      <strong style={{ color: '#0F172A', marginRight: '6px' }}>Required Deliverable Proof:</strong>
-                      <span>{renderFormattedInstruction(activeItem.expected_evidence)}</span>
-                    </div>
-                  </div>
-
-                  {/* Clean Action Buttons */}
-                  <div style={{
-                    paddingTop: '1rem',
-                    borderTop: '1px solid #E2E8F0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '0.75rem'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setSubmitModalItem(activeItem)}
-                        style={{
-                          background: '#1E1E24',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '7px 12px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px'
-                        }}
-                      >
-                        <SlackLogo />
-                        <span>Slack</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSubmitModalItem(activeItem)}
-                        style={{
-                          background: '#464EB8',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '7px 12px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px'
-                        }}
-                      >
-                        <TeamsLogo />
-                        <span>Teams</span>
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleCheck(e, activeItem)}
-                        style={{
-                          background: '#F8FAFC',
-                          border: '1px solid #CBD5E1',
-                          color: '#0F172A',
-                          borderRadius: '6px',
-                          padding: '7px 14px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {activeItem.status === 'Verified' ? 'Mark as Pending' : 'Mark as Verified'}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSubmitModalItem(activeItem)}
-                        style={{
-                          background: '#ED7D31',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '8px 16px',
-                          fontSize: '12.5px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px'
-                        }}
-                      >
-                        <span>Provide Handover & Upload Proof</span>
-                        <ArrowRight size={13} />
-                      </button>
-                    </div>
-                  </div>
+                  No deliverables match your criteria.
                 </div>
               ) : (
-                <div style={{
-                  padding: '3rem 2rem',
-                  textAlign: 'center',
-                  color: '#64748B',
-                  fontSize: '13px'
-                }}>
-                  Select a prerequisite from the list to view instructions and submit evidence.
-                </div>
+                (() => {
+                  const categories = Array.from(new Set(filteredChecklist.map(i => i.category || 'General')));
+
+                  return categories.map((catName) => {
+                    const catItems = filteredChecklist.filter(i => (i.category || 'General') === catName);
+                    const catCompleted = catItems.filter(i => i.status === 'Verified').length;
+
+                    return (
+                      <div key={catName} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {/* Category Header Row */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0 4px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '15px', fontWeight: 800, color: '#09090B' }}>
+                              {catName}
+                            </span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: '#71717A',
+                              background: '#F4F4F5',
+                              border: '1px solid #E4E4E7',
+                              padding: '2px 8px',
+                              borderRadius: '4px'
+                            }}>
+                              {catItems.length} {catItems.length === 1 ? 'item' : 'items'}
+                            </span>
+                          </div>
+
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: '#71717A',
+                            background: '#F4F4F5',
+                            border: '1px solid #E4E4E7',
+                            padding: '2px 10px',
+                            borderRadius: '4px'
+                          }}>
+                            {catCompleted} / {catItems.length} Cleared
+                          </span>
+                        </div>
+
+                        {/* Individual Cards for each item */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {catItems.map((item, idx) => {
+                            const isDone = item.status === 'Verified';
+                            const guideTitle = item.guideTitle ||
+                              (item.name.toLowerCase().includes('whitelist') ? 'Whitelisting SOP' :
+                               item.name.toLowerCase().includes('sql') ? 'Connection Guide' :
+                               item.name.toLowerCase().includes('role') || item.name.toLowerCase().includes('iam') ? 'IAM Role SOP' : 'Credential Guide');
+
+                            return (
+                              <div
+                                key={item.id || idx}
+                                onClick={() => setSubmitModalItem(item)}
+                                style={{
+                                  background: '#FFFFFF',
+                                  border: '1px solid #E4E4E7',
+                                  borderRadius: '10px',
+                                  padding: '14px 20px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: '16px',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 1px 2px rgba(0,0,0,0.01)',
+                                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease'
+                                }}
+                                onMouseOver={(e) => { e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.04)'; }}
+                                onMouseOut={(e) => { e.currentTarget.style.borderColor = '#E4E4E7'; e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.01)'; }}
+                              >
+                                {/* Left Icon + Metadata */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1 }}>
+                                  {/* Square status icon */}
+                                  <div style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '8px',
+                                    background: isDone ? '#F4F4F5' : '#FFF7ED',
+                                    border: isDone ? '1px solid #E4E4E7' : '1px solid #FFEDD5',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    {isDone ? (
+                                      <Check size={14} color="#18181B" strokeWidth={2.5} />
+                                    ) : (
+                                      <Clock size={15} color="#ED7D31" />
+                                    )}
+                                  </div>
+
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    {/* Title & inline tags */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                      <span style={{
+                                        fontSize: '13.5px',
+                                        fontWeight: 700,
+                                        color: '#09090B'
+                                      }}>
+                                        {item.name}
+                                      </span>
+
+                                      {/* Category tag */}
+                                      <span style={{
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        color: '#52525B',
+                                        background: '#F4F4F5',
+                                        border: '1px solid #E4E4E7',
+                                        padding: '1px 7px',
+                                        borderRadius: '4px'
+                                      }}>
+                                        {item.category || 'General'}
+                                      </span>
+
+                                      {/* Day-1 Blocker tag */}
+                                      {item.is_critical && (
+                                        <span style={{
+                                          fontSize: '11px',
+                                          fontWeight: isDone ? 500 : 700,
+                                          color: isDone ? '#A1A1AA' : '#ED7D31',
+                                          background: isDone ? 'transparent' : '#FFF7ED',
+                                          border: isDone ? 'none' : '1px solid #FFEDD5',
+                                          padding: isDone ? '0' : '1px 7px',
+                                          borderRadius: '4px',
+                                          textDecoration: isDone ? 'line-through' : 'none',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}>
+                                          {!isDone && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ED7D31' }} />}
+                                          Day-1 Blocker
+                                        </span>
+                                      )}
+
+                                      {/* Submitted for Engineering Review tag */}
+                                      {!isDone && item.status === 'Submitted' && (
+                                        <span style={{
+                                          fontSize: '11px',
+                                          fontWeight: 700,
+                                          color: '#EA580C',
+                                          background: '#FFF7ED',
+                                          border: '1px solid #FED7AA',
+                                          padding: '1px 8px',
+                                          borderRadius: '4px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}>
+                                          <Clock size={11} color="#EA580C" />
+                                          <span>In Review</span>
+                                        </span>
+                                      )}
+
+                                      {/* Evidence Attached tag */}
+                                      {item.evidence_file && (
+                                        <span style={{
+                                          fontSize: '11px',
+                                          fontWeight: 600,
+                                          color: '#0F172A',
+                                          background: '#F1F5F9',
+                                          border: '1px solid #CBD5E1',
+                                          padding: '1px 7px',
+                                          borderRadius: '4px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px'
+                                        }}>
+                                          <span>📎 Proof Attached</span>
+                                        </span>
+                                      )}
+
+                                      {/* Verified by goML tag */}
+                                      {isDone && (
+                                        <span style={{
+                                          fontSize: '11px',
+                                          fontWeight: 700,
+                                          color: '#18181B',
+                                          background: '#F4F4F5',
+                                          border: '1px solid #E4E4E7',
+                                          padding: '1px 8px',
+                                          borderRadius: '4px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}>
+                                          <Check size={11} strokeWidth={3} />
+                                          <span>Verified by goML</span>
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Subtitle / metadata */}
+                                    <div style={{
+                                      fontSize: '12px',
+                                      color: '#71717A',
+                                      marginTop: '3px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      flexWrap: 'wrap'
+                                    }}>
+                                      <span>{item.owner || 'Data Steward'}</span>
+                                      <span>&bull;</span>
+                                      <span>Due {item.due_date || '2026-10-19'}</span>
+                                      <span>&bull;</span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setSubmitModalItem(item); }}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          padding: 0,
+                                          color: '#09090B',
+                                          fontSize: '12px',
+                                          fontWeight: 600,
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px'
+                                        }}
+                                      >
+                                        <span>{guideTitle}</span>
+                                        <ArrowUpRight size={11} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Right Action Button */}
+                                <div style={{ flexShrink: 0 }}>
+                                  {isDone ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setSubmitModalItem(item); }}
+                                      style={{
+                                        background: '#FFFFFF',
+                                        color: '#09090B',
+                                        border: '1px solid #E4E4E7',
+                                        borderRadius: '9999px',
+                                        padding: '6px 18px',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                    >
+                                      <Check size={12} strokeWidth={2.5} />
+                                      <span>Cleared</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setSubmitModalItem(item); }}
+                                      style={{
+                                        background: '#000000',
+                                        color: '#FFFFFF',
+                                        border: 'none',
+                                        borderRadius: '9999px',
+                                        padding: '8px 20px',
+                                        fontSize: '12.5px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      onMouseOver={(e) => e.currentTarget.style.background = '#18181B'}
+                                      onMouseOut={(e) => e.currentTarget.style.background = '#000000'}
+                                    >
+                                      <span>Review Handover</span>
+                                      <ArrowRight size={12} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()
               )}
             </div>
           </>
         )}
       </main>
 
-      {/* 4. BOTTOM BRAND FOOTER (GoML Wordmark) */}
+      {/* BEGIN: SiteFooter matching screenshot */}
       <footer style={{
-        textAlign: 'center',
-        padding: '1.5rem 1rem 2.5rem',
-        fontSize: '13px',
-        color: '#6B7280',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '6px'
+        marginTop: 'auto',
+        borderTop: '1px solid #E4E4E7',
+        background: '#FFFFFF',
+        padding: '1.25rem 2rem'
       }}>
-        <span>An AI engineering system by</span>
-        <GoMLWordmark />
+        <div style={{
+          maxWidth: '1440px',
+          margin: '0 auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          fontSize: '12px',
+          color: '#71717A'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ED7D31', display: 'inline-block' }} />
+            <strong style={{ color: '#09090B' }}>GOML PREQ DELIVERY PROTOCOL</strong>
+            <span>&mdash; Verified Pre-Kickoff Protocol v4.8</span>
+          </div>
+
+          <div>
+            An AI engineering delivery management system by goML. All telemetry secured.
+          </div>
+        </div>
       </footer>
 
-      {/* SUBMISSION & VERIFICATION MODAL WORKSPACE */}
+      {/* EVIDENCE SUBMISSION & HANDOVER MODAL */}
       <SubmitEvidenceModal
-        isOpen={Boolean(submitModalItem)}
+        isOpen={!!submitModalItem}
         onClose={() => setSubmitModalItem(null)}
         item={submitModalItem}
-        onSubmitted={fetchProjectData}
+        onSubmitted={() => {
+          fetchProjectData();
+          triggerToast('Evidence submitted successfully! Dispatched to goML Engineering.');
+        }}
       />
     </div>
   );

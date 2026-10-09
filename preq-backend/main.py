@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Request
+from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -18,6 +19,11 @@ try:
     import docx
 except ImportError:
     docx = None
+
+try:
+    import pptx
+except ImportError:
+    pptx = None
 import uvicorn
 
 from database import engine, Base, get_db, SessionLocal
@@ -39,21 +45,33 @@ from templates_data import (
 import copilot_service
 import dynamic_scraper
 import seed_data
+import brd_service
+from universal_parser import extract_text_from_any_file
 
 # Ensure database tables exist and seed demo data if empty
 Base.metadata.create_all(bind=engine)
-with engine.connect() as conn:
-    from sqlalchemy import text
+from sqlalchemy import text
+
+db_migrations = [
+    ("checklist_items", "api_key_name", "VARCHAR"),
+    ("checklist_items", "api_key_value", "VARCHAR"),
+    ("projects", "internal_review_status", "VARCHAR DEFAULT 'Pending Internal Review (Akshay & Thasleema)'"),
+    ("projects", "brd_json", "TEXT"),
+    ("projects", "proposal_filename", "VARCHAR")
+]
+
+for table_name, col_name, col_type in db_migrations:
     try:
-        conn.execute(text("ALTER TABLE checklist_items ADD COLUMN api_key_name VARCHAR"))
-        conn.commit()
-    except Exception:
-        pass
-    try:
-        conn.execute(text("ALTER TABLE checklist_items ADD COLUMN api_key_value VARCHAR"))
-        conn.commit()
-    except Exception:
-        pass
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+    except Exception as e:
+        # In case IF NOT EXISTS syntax is different on older SQLite fallback
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
+        except Exception:
+            pass
+
 seed_data.seed_database()
 
 app = FastAPI(title="PreQ - Enterprise Kick-Off Readiness Platform", version="2.0.0")
@@ -296,20 +314,24 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
 def list_projects(db: Session = Depends(get_db)):
     projects = db.query(Project).order_by(Project.created_at.desc()).all()
     output = []
+    today_str = datetime.date.today().isoformat()
     for p in projects:
         metrics = compute_project_metrics(p, db)
         output.append(ProjectOut(
             id=p.id,
-            name=p.name,
+            name=p.name or "Enterprise Initiative",
             description=p.description or "",
-            client_name=p.client_name,
-            client_email=p.client_email,
-            type=p.type,
-            industry=p.industry,
-            deployment=p.deployment,
-            target_kickoff_date=p.target_kickoff_date,
+            client_name=p.client_name or "Enterprise Client",
+            client_email=p.client_email or "sponsor@client.com",
+            type=p.type or "GenAI / LLM Application",
+            industry=p.industry or "BFSI (Banking & Financial Services)",
+            deployment=p.deployment or "AWS Cloud",
+            target_kickoff_date=p.target_kickoff_date or today_str,
             status=metrics["status"],
             score=metrics["score"],
+            internal_review_status=getattr(p, "internal_review_status", None) or "Pending Internal Review (Akshay & Thasleema)",
+            has_brd=bool(getattr(p, "brd_json", None)),
+            proposal_filename=getattr(p, "proposal_filename", None),
             total_items=metrics["total_items"],
             verified_items=metrics["verified_items"],
             critical_blockers=metrics["critical_blockers"],
@@ -337,7 +359,8 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
         deployment=data.deployment,
         target_kickoff_date=target_date,
         status="In Progress",
-        score=0
+        score=0,
+        internal_review_status="Pending Internal Review (Akshay & Thasleema)"
     )
     db.add(project)
     db.commit()
@@ -378,6 +401,18 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
         )
         db.add(item_obj)
 
+    # Automatically generate structured 27-section BRD baseline
+    try:
+        brd_dict = brd_service.generate_fallback_brd(
+            project_name=data.name,
+            client_name=data.client_name,
+            project_type=data.type,
+            industry=data.industry
+        )
+        project.brd_json = json.dumps(brd_dict)
+    except Exception as e:
+        print(f"Initial BRD creation: {e}")
+
     db.commit()
     db.refresh(project)
 
@@ -394,6 +429,9 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
         target_kickoff_date=project.target_kickoff_date,
         status=metrics["status"],
         score=metrics["score"],
+        internal_review_status=getattr(project, "internal_review_status", None) or "Pending Internal Review (Akshay & Thasleema)",
+        has_brd=bool(getattr(project, "brd_json", None)),
+        proposal_filename=getattr(project, "proposal_filename", None),
         total_items=metrics["total_items"],
         verified_items=metrics["verified_items"],
         critical_blockers=metrics["critical_blockers"],
@@ -420,6 +458,9 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
         target_kickoff_date=project.target_kickoff_date,
         status=metrics["status"],
         score=metrics["score"],
+        internal_review_status=getattr(project, "internal_review_status", None) or "Pending Internal Review (Akshay & Thasleema)",
+        has_brd=bool(getattr(project, "brd_json", None)),
+        proposal_filename=getattr(project, "proposal_filename", None),
         total_items=metrics["total_items"],
         verified_items=metrics["verified_items"],
         critical_blockers=metrics["critical_blockers"],
@@ -462,6 +503,9 @@ def update_project(project_id: str, data: ProjectUpdate, db: Session = Depends(g
         target_kickoff_date=project.target_kickoff_date,
         status=metrics["status"],
         score=metrics["score"],
+        internal_review_status=getattr(project, "internal_review_status", None) or "Pending Internal Review (Akshay & Thasleema)",
+        has_brd=bool(getattr(project, "brd_json", None)),
+        proposal_filename=getattr(project, "proposal_filename", None),
         total_items=metrics["total_items"],
         verified_items=metrics["verified_items"],
         critical_blockers=metrics["critical_blockers"],
@@ -478,59 +522,47 @@ def delete_project(project_id: str, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Project deleted successfully", "id": project_id}
 
-# --- SOW Analysis Endpoints ---
+@app.post("/api/projects/clear-all")
+@app.delete("/api/projects/clear-all")
+def clear_all_projects(db: Session = Depends(get_db)):
+    import seed_data
+    seed_data.clear_database()
+    return {"message": "All projects and prerequisite data cleared successfully"}
+
+@app.post("/api/projects/seed-demo")
+def seed_demo_project_endpoint(db: Session = Depends(get_db)):
+    import seed_data
+    proj_id = seed_data.seed_movilventas_demo()
+    return {"message": "Demo MovilVentas project seeded successfully", "project_id": proj_id}
+
+
+
+# --- SOW / Proposal Analysis Endpoints ---
 @app.post("/api/analyze-sow", response_model=ProjectOut)
 def analyze_sow_text(req: SOWAnalyzeRequest, db: Session = Depends(get_db)):
     ai_result = copilot_service.analyze_sow(req.content)
-    return _create_project_from_extracted_data(ai_result, db)
+    return _create_project_from_extracted_data(ai_result, db, proposal_text=req.content, filename="Pasted_Proposal_Text")
 
 @app.post("/api/analyze-sow-file", response_model=ProjectOut)
 async def analyze_sow_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
     content = await file.read()
-    extracted_text = ""
-    filename = (file.filename or "").lower()
-
-    if filename.endswith(".pdf"):
-        if pypdf:
-            try:
-                pdf_reader = pypdf.PdfReader(BytesIO(content))
-                for page in pdf_reader.pages:
-                    t = page.extract_text()
-                    if t:
-                        extracted_text += t + "\n"
-            except Exception as e:
-                print(f"Error reading PDF with pypdf: {e}")
-        if not extracted_text.strip():
-            extracted_text = content.decode("utf-8", errors="ignore")
-
-    elif filename.endswith(".docx"):
-        if docx:
-            try:
-                doc = docx.Document(BytesIO(content))
-                extracted_text = "\n".join([p.text for p in doc.paragraphs if p.text])
-            except Exception as e:
-                print(f"Error reading DOCX with python-docx: {e}")
-        if not extracted_text.strip():
-            extracted_text = content.decode("utf-8", errors="ignore")
-    else:
-        try:
-            extracted_text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            extracted_text = content.decode("utf-8", errors="ignore")
-
-    if not extracted_text.strip():
-        extracted_text = f"Project SOW: {file.filename or 'Enterprise Statement of Work'}"
+    filename = file.filename or "Enterprise_Proposal_Document"
+    
+    # Universal file extractor supporting PPTX, PPT, PDF, DOCX, DOC, XLSX, CSV, Keynote, Pages, TXT, JSON, YAML, RTF, ZIP & any binary format
+    extracted_text = extract_text_from_any_file(content, filename)
+    print(f"Universal file extractor processed '{filename}' ({len(content)} bytes) -> {len(extracted_text)} chars extracted.")
 
     try:
         ai_result = copilot_service.analyze_sow(extracted_text)
-        return _create_project_from_extracted_data(ai_result, db)
+        return _create_project_from_extracted_data(ai_result, db, proposal_text=extracted_text, filename=filename)
     except Exception as e:
-        print(f"AI SOW Analysis error, using fallback template: {e}")
+        db.rollback()
+        print(f"AI Proposal Analysis error, using fallback template: {e}")
         clean_name = file.filename.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ').title() if file.filename else "Enterprise Initiative"
         fallback_data = {
             "project": {
                 "name": clean_name,
-                "description": "Enterprise project extracted and structured from Statement of Work.",
+                "description": "Enterprise project extracted and structured from Proposal Document.",
                 "client_name": "Enterprise Client",
                 "client_email": "sponsor@client.com",
                 "type": "GenAI / LLM Application",
@@ -540,33 +572,81 @@ async def analyze_sow_file(file: UploadFile = File(...), db: Session = Depends(g
             },
             "checklist": []
         }
-        return _create_project_from_extracted_data(fallback_data, db)
+        return _create_project_from_extracted_data(fallback_data, db, proposal_text=extracted_text, filename=filename)
 
-def _create_project_from_extracted_data(ai_result: dict, db: Session) -> ProjectOut:
+def _create_project_from_extracted_data(ai_result: dict, db: Session, proposal_text: str = "", filename: str = "") -> ProjectOut:
     proj_data = ai_result.get("project", {}) if isinstance(ai_result, dict) else {}
     today = datetime.date.today()
     try:
-        days_to_kickoff = int(proj_data.get("target_kickoff_days", 14))
+        days_to_kickoff = int(proj_data.get("target_kickoff_days") or 14)
     except (ValueError, TypeError):
         days_to_kickoff = 14
     target_kickoff = (today + datetime.timedelta(days=days_to_kickoff)).isoformat()
 
+    # Ensure project metadata values are NEVER None (which violates NOT NULL DB constraints)
+    raw_name = proj_data.get("name") if isinstance(proj_data, dict) else None
+    if not raw_name or not str(raw_name).strip() or str(raw_name).lower() == "null":
+        clean_file_title = filename.rsplit('.', 1)[0].replace('_', ' ').replace('-', ' ').title() if filename else "Enterprise Initiative"
+        p_name = clean_file_title
+    else:
+        p_name = str(raw_name).strip()
+
+    p_desc = (proj_data.get("description") if isinstance(proj_data, dict) else None) or "AI extracted from Proposal Document"
+    p_client = (proj_data.get("client_name") if isinstance(proj_data, dict) else None) or "Enterprise Client"
+    p_email = (proj_data.get("client_email") if isinstance(proj_data, dict) else None) or "sponsor@client.com"
+    p_type = (proj_data.get("type") if isinstance(proj_data, dict) else None) or "GenAI / LLM Application"
+    p_ind = (proj_data.get("industry") if isinstance(proj_data, dict) else None) or "BFSI (Banking & Financial Services)"
+    p_dep = (proj_data.get("deployment") if isinstance(proj_data, dict) else None) or "AWS Cloud"
+
     project_id = str(uuid.uuid4())
     project = Project(
         id=project_id,
-        name=proj_data.get("name", "Extracted Initiative"),
-        description=proj_data.get("description", "AI extracted from Statement of Work"),
-        client_name=proj_data.get("client_name", "Enterprise Client"),
-        client_email=proj_data.get("client_email", "sponsor@client.com"),
-        type=proj_data.get("type", "GenAI / LLM Application"),
-        industry=proj_data.get("industry", "BFSI (Banking & Financial Services)"),
-        deployment=proj_data.get("deployment", "AWS Cloud"),
+        name=p_name,
+        description=p_desc,
+        client_name=p_client,
+        client_email=p_email,
+        type=p_type,
+        industry=p_ind,
+        deployment=p_dep,
         target_kickoff_date=target_kickoff,
         status="In Progress",
-        score=0
+        score=0,
+        internal_review_status="Pending Internal Review (Akshay & Thasleema)",
+        proposal_filename=filename or "Uploaded_Proposal"
     )
-    db.add(project)
-    db.commit()
+
+    # Generate 27-Section BRD strictly based on the proposal
+    try:
+        brd_dict = brd_service.generate_brd_from_proposal(
+            proposal_text=proposal_text or (p_desc + " " + p_name),
+            project_name=project.name,
+            client_name=project.client_name,
+            project_type=project.type,
+            industry=project.industry
+        )
+        project.brd_json = json.dumps(brd_dict)
+    except Exception as e:
+        print(f"Error creating BRD from proposal: {e}")
+        brd_dict = brd_service.generate_fallback_brd(
+            project_name=project.name,
+            client_name=project.client_name,
+            project_type=project.type,
+            industry=project.industry
+        )
+        project.brd_json = json.dumps(brd_dict)
+
+    try:
+        db.add(project)
+        db.commit()
+    except Exception as commit_err:
+        db.rollback()
+        print(f"Database commit error in _create_project_from_extracted_data: {commit_err}")
+        # Retry with guaranteed clean non-null defaults
+        project.name = p_name or "Enterprise Initiative"
+        project.client_name = p_client or "Enterprise Client"
+        project.client_email = p_email or "sponsor@client.com"
+        db.add(project)
+        db.commit()
 
     checklist_items = ai_result.get("checklist", []) if isinstance(ai_result, dict) else []
     if not checklist_items:
@@ -636,6 +716,9 @@ def _create_project_from_extracted_data(ai_result: dict, db: Session) -> Project
         target_kickoff_date=project.target_kickoff_date,
         status=metrics["status"],
         score=metrics["score"],
+        internal_review_status=getattr(project, "internal_review_status", None) or "Pending Internal Review (Akshay & Thasleema)",
+        has_brd=bool(getattr(project, "brd_json", None)),
+        proposal_filename=getattr(project, "proposal_filename", None),
         total_items=metrics["total_items"],
         verified_items=metrics["verified_items"],
         critical_blockers=metrics["critical_blockers"],
@@ -737,50 +820,49 @@ def update_checklist_item(item_id: str, update: ChecklistItemUpdate, db: Session
 @app.post("/api/items/{item_id}/submit-evidence")
 async def submit_evidence(
     item_id: str,
-    evidence_url: Optional[str] = Form(None),
-    evidence_notes: Optional[str] = Form(None),
-    api_key_name: Optional[str] = Form(None),
-    api_key_value: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None),
-    files: Optional[List[UploadFile]] = File(None),
+    request: Request,
     db: Session = Depends(get_db)
 ):
     item = db.query(ChecklistItem).filter(ChecklistItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
+    form = await request.form()
+    evidence_url = form.get("evidence_url")
+    evidence_notes = form.get("evidence_notes")
+    api_key_name = form.get("api_key_name")
+    api_key_value = form.get("api_key_value")
+
     saved_files = []
     if item.evidence_file:
         saved_files = [f.strip() for f in item.evidence_file.split(",") if f.strip()]
 
-    if file and file.filename:
-        safe_name = f"{item_id}_{uuid.uuid4().hex[:6]}_{file.filename}"
-        file_path = os.path.join(UPLOAD_DIR, safe_name)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        saved_files.append(f"/uploads/{safe_name}")
-
-    if files:
-        for f in files:
-            if f and f.filename:
-                safe_name = f"{item_id}_{uuid.uuid4().hex[:6]}_{f.filename}"
-                file_path = os.path.join(UPLOAD_DIR, safe_name)
-                with open(file_path, "wb") as buffer:
-                    shutil.copyfileobj(f.file, buffer)
-                saved_files.append(f"/uploads/{safe_name}")
+    # Extract all uploaded files from form data regardless of key ("file", "files", "attachment", etc.)
+    for key, value in form.multi_items():
+        if hasattr(value, "filename") and value.filename:
+            safe_name = f"{item_id}_{uuid.uuid4().hex[:6]}_{value.filename}"
+            file_path = os.path.join(UPLOAD_DIR, safe_name)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(value.file, buffer)
+            saved_files.append(f"/uploads/{safe_name}")
 
     if saved_files:
         item.evidence_file = ",".join(saved_files)
 
     if evidence_url:
-        item.evidence_url = evidence_url
+        item.evidence_url = str(evidence_url)
     if evidence_notes:
-        item.evidence_notes = evidence_notes
-    if api_key_value and api_key_value.strip():
-        item.api_key_value = api_key_value.strip()
-        item.api_key_name = (api_key_name and api_key_name.strip()) or "API_KEY"
+        item.evidence_notes = str(evidence_notes)
+    if api_key_value and str(api_key_value).strip():
+        item.api_key_value = str(api_key_value).strip()
+        item.api_key_name = (api_key_name and str(api_key_name).strip()) or "API_KEY"
 
-    item.status = "Submitted"
+    req_status = form.get("status")
+    if req_status and str(req_status).strip() in ["Submitted", "Verified", "Pending", "Verifying"]:
+        item.status = str(req_status).strip()
+    else:
+        item.status = "Submitted"
+
     item.rejection_reason = None  # Clear previous rejection if any
     db.commit()
     db.refresh(item)
@@ -1273,5 +1355,218 @@ async def microsoft_auth_endpoint(payload: dict):
         }
     }
 
+# ==========================================
+# BRD & MINIMAL PRE-REQ TRACKER ENDPOINTS
+# ==========================================
+
+@app.get("/api/projects/{project_id}/brd")
+def get_project_brd(project_id: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if project.brd_json:
+        try:
+            return json.loads(project.brd_json)
+        except Exception:
+            pass
+
+    # If missing, generate baseline BRD
+    items = db.query(ChecklistItem).filter(ChecklistItem.project_id == project_id).all()
+    items_summary = "\n".join([f"- {it.name} ({it.category}, Owner: {it.owner}, Critical: {it.is_critical})" for it in items])
+    context_text = f"Project: {project.name}\nDescription: {project.description}\nClient: {project.client_name}\nPrerequisites:\n{items_summary}"
+    
+    brd = brd_service.generate_brd_from_proposal(
+        proposal_text=context_text,
+        project_name=project.name,
+        client_name=project.client_name,
+        project_type=project.type,
+        industry=project.industry
+    )
+    project.brd_json = json.dumps(brd)
+    db.commit()
+    return brd
+
+@app.post("/api/projects/{project_id}/generate-brd")
+def generate_project_brd_endpoint(project_id: str, payload: dict = {}, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    custom_text = payload.get("proposal_text", "")
+    items = db.query(ChecklistItem).filter(ChecklistItem.project_id == project_id).all()
+    items_summary = "\n".join([f"- {it.name} ({it.category}, Owner: {it.owner}, Critical: {it.is_critical})" for it in items])
+    context_text = custom_text or f"Project: {project.name}\nDescription: {project.description}\nClient: {project.client_name}\nPrerequisites:\n{items_summary}"
+    
+    brd = brd_service.generate_brd_from_proposal(
+        proposal_text=context_text,
+        project_name=project.name,
+        client_name=project.client_name,
+        project_type=project.type,
+        industry=project.industry
+    )
+    project.brd_json = json.dumps(brd)
+    db.commit()
+    return brd
+
+@app.get("/api/projects/{project_id}/preview-brd-html", response_class=HTMLResponse)
+def preview_brd_html(project_id: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    brd_data = None
+    if project.brd_json:
+        try:
+            brd_data = json.loads(project.brd_json)
+        except Exception:
+            pass
+
+    if not brd_data:
+        brd_data = brd_service.generate_fallback_brd(
+            proposal_text=project.description or "",
+            project_name=project.name,
+            client_name=project.client_name,
+            project_type=project.type,
+            industry=project.industry
+        )
+
+    html_content = brd_service.generate_brd_html(brd_data)
+    return HTMLResponse(content=html_content)
+
+@app.get("/api/projects/{project_id}/export-brd-docx")
+def export_brd_docx(project_id: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    brd_data = None
+    if project.brd_json:
+        try:
+            brd_data = json.loads(project.brd_json)
+        except Exception:
+            pass
+
+    if not brd_data:
+        brd_data = brd_service.generate_fallback_brd(
+            project_name=project.name,
+            client_name=project.client_name,
+            project_type=project.type,
+            industry=project.industry
+        )
+
+    file_stream = brd_service.generate_brd_docx(brd_data)
+    safe_name = "".join(c for c in project.name if c.isalnum() or c in (' ', '_', '-')).rstrip()
+    filename = f"{safe_name.replace(' ', '_')}_BRD_Document.docx"
+
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+    )
+
+@app.get("/api/projects/{project_id}/export-excel-tracker")
+def export_excel_tracker(project_id: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    items = db.query(ChecklistItem).filter(ChecklistItem.project_id == project_id).all()
+    items_dicts = []
+    for it in items:
+        deps = []
+        if it.depends_on:
+            try:
+                deps = json.loads(it.depends_on)
+            except Exception:
+                deps = []
+        
+        desc_val = (getattr(it, "description", "") or "").strip()
+        if not desc_val:
+            desc_val = (getattr(it, "expected_evidence", "") or "").strip()
+        if not desc_val:
+            desc_val = f"Verification clearance, provisioning, and access alignment required for {it.name} prior to kickoff."
+
+        items_dicts.append({
+            "name": it.name,
+            "description": desc_val,
+            "category": it.category,
+            "owner": it.owner,
+            "is_critical": it.is_critical,
+            "due_date": it.due_date,
+            "status": it.status,
+            "depends_on": deps
+        })
+
+    proj_dict = {
+        "name": project.name,
+        "client_name": project.client_name,
+        "target_kickoff_date": project.target_kickoff_date,
+        "internal_review_status": getattr(project, "internal_review_status", "Reviewed by Akshay & Thasleema (Internal Only)")
+    }
+
+    excel_stream = brd_service.generate_excel_tracker(proj_dict, items_dicts)
+    safe_name = "".join(c for c in project.name if c.isalnum() or c in (' ', '_', '-')).rstrip()
+    filename = f"{safe_name.replace(' ', '_')}_PreReq_Tracker.xlsx"
+
+    return StreamingResponse(
+        excel_stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+    )
+
+@app.post("/api/projects/{project_id}/internal-review-signoff", response_model=ProjectOut)
+def internal_review_signoff(project_id: str, payload: dict = {}, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    reviewer = payload.get("reviewer", "Akshay & Thasleema")
+    action = payload.get("action", "Approve")
+    notes = payload.get("notes", "Tracker reviewed and verified internally. Cleared for external distribution.")
+
+    if action == "Approve":
+        project.internal_review_status = "Approved by Akshay & Thasleema"
+    else:
+        project.internal_review_status = f"Review Notes: {notes} ({reviewer})"
+
+    # Log escalation/governance event
+    log_entry = EscalationLog(
+        id=str(uuid.uuid4()),
+        project_id=project.id,
+        item_name="Governance Review Sign-off",
+        level=1,
+        title=f"Internal Tracker Review {action}d",
+        message=f"{reviewer} has performed internal governance review. Status: {project.internal_review_status}. Notes: {notes}",
+        recipient="Akshay & Thasleema Internal Delivery Board"
+    )
+    db.add(log_entry)
+    db.commit()
+    db.refresh(project)
+
+    metrics = compute_project_metrics(project, db)
+    return ProjectOut(
+        id=project.id,
+        name=project.name,
+        description=project.description or "",
+        client_name=project.client_name,
+        client_email=project.client_email,
+        type=project.type,
+        industry=project.industry,
+        deployment=project.deployment,
+        target_kickoff_date=project.target_kickoff_date,
+        status=metrics["status"],
+        score=metrics["score"],
+        internal_review_status=getattr(project, "internal_review_status", None) or "Approved by Akshay & Thasleema",
+        has_brd=bool(getattr(project, "brd_json", None)),
+        proposal_filename=getattr(project, "proposal_filename", None),
+        total_items=metrics["total_items"],
+        verified_items=metrics["verified_items"],
+        critical_blockers=metrics["critical_blockers"],
+        category_scores=metrics["category_scores"],
+        created_at=project.created_at
+    )
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+

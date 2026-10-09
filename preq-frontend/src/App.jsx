@@ -4,7 +4,6 @@ import axios from 'axios';
 import './index.css';
 
 import { AuthProvider } from './context/AuthContext';
-import { ProtectedRoute } from './components/ProtectedRoute';
 import { Navbar } from './components/Navbar';
 import { GojiCopilot } from './components/GojiCopilot';
 import { ExecutiveDashboard } from './pages/ExecutiveDashboard';
@@ -12,7 +11,6 @@ import { CreateProject } from './pages/CreateProject';
 import { ProjectDashboard } from './pages/ProjectDashboard';
 import { ClientPortal } from './pages/ClientPortal';
 import { CertificateView } from './pages/CertificateView';
-import { LoginPage } from './pages/LoginPage';
 
 import { API_URL } from './apiConfig';
 
@@ -51,38 +49,22 @@ function AppLayout() {
 
       <main style={{ flex: 1 }}>
         <Routes>
-          {/* Public Login Route */}
-          <Route path="/login" element={<LoginPage />} />
-
-          {/* Dedicated External Client Portal (No Internal @goml.io Microsoft Auth Needed) */}
+          {/* External Client Portal */}
           <Route path="/client/:id" element={<ClientPortal />} />
 
-          {/* Protected Internal Engineering & Leadership Routes */}
-          <Route path="/" element={
-            <ProtectedRoute>
-              <ExecutiveDashboard onOpenCopilot={() => setIsCopilotOpen(true)} />
-            </ProtectedRoute>
-          } />
-          <Route path="/new" element={
-            <ProtectedRoute>
-              <CreateProject />
-            </ProtectedRoute>
-          } />
-          <Route path="/dashboard/:id" element={
-            <ProtectedRoute>
-              <ProjectDashboard onOpenCopilot={() => setIsCopilotOpen(true)} />
-            </ProtectedRoute>
-          } />
-          <Route path="/certificate/:id" element={
-            <ProtectedRoute>
-              <CertificateView />
-            </ProtectedRoute>
-          } />
+          {/* Internal Engineering & Executive Pages */}
+          <Route path="/" element={<ExecutiveDashboard onOpenCopilot={() => setIsCopilotOpen(true)} />} />
+          <Route path="/new" element={<CreateProject />} />
+          <Route path="/dashboard/:id" element={<ProjectDashboard onOpenCopilot={() => setIsCopilotOpen(true)} />} />
+          <Route path="/certificate/:id" element={<CertificateView />} />
+          
+          {/* Fallback for /login */}
+          <Route path="/login" element={<ExecutiveDashboard onOpenCopilot={() => setIsCopilotOpen(true)} />} />
         </Routes>
       </main>
 
-      {/* Internal AI Copilot only available for GoML Engineering Team */}
-      {!isClientView && !isLoginPage && (
+      {/* Internal AI Copilot only available for GoML Engineering Team (hidden on /new, client portal & login) */}
+      {!isClientView && !isLoginPage && !location.pathname.startsWith('/new') && (
         <GojiCopilot
           isOpen={isCopilotOpen}
           onToggle={() => setIsCopilotOpen(prev => !prev)}

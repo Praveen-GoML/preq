@@ -1,23 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowRight, LogOut, ShieldCheck, User } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-
-// Official Microsoft 4-Tile Vector Logo
-const MicrosoftLogo = ({ size = 16 }) => (
-  <svg width={size} height={size} viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-    <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-    <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-    <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-  </svg>
-);
+import { Sparkles, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export const Navbar = ({ onOpenCopilot }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuth();
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const isNewInitiative = location.pathname.startsWith('/new');
 
   const isActive = (path) => {
     if (path === '/' && location.pathname === '/') return true;
@@ -25,15 +13,11 @@ export const Navbar = ({ onOpenCopilot }) => {
     return false;
   };
 
-  const handleSignOut = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
     <header style={{
-      background: '#ffffff',
-      borderBottom: '1px solid #eef0f2',
+      background: 'rgba(255, 255, 255, 0.95)',
+      backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid #E2E8F0',
       position: 'sticky',
       top: 0,
       zIndex: 100,
@@ -43,13 +27,45 @@ export const Navbar = ({ onOpenCopilot }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        height: '74px'
+        height: '60px'
       }}>
-        {/* Logo & Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
+        {/* Left Side: Material Back Button (if on /new) + Logo & Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {isNewInitiative && (
+            <button
+              onClick={() => navigate('/')}
+              title="Back to Portfolio"
+              type="button"
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#334155',
+                transition: 'all 0.15s ease',
+                marginRight: '0.2rem'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = '#F1F5F9';
+                e.currentTarget.style.color = '#ED7D31';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = '#334155';
+              }}
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', textDecoration: 'none' }}>
             {/* GoML Official SVG Logo */}
-            <svg width="117" height="36" viewBox="0 0 117 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="105" height="32" viewBox="0 0 117 36" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M57.4577 20.6304V20.5321H54.6025V20.6216C54.6025 23.0446 52.6117 24.6665 50.049 24.6665C47.4863 24.6665 45.7618 23.0534 45.7618 20.6304C45.7618 18.179 47.4601 16.568 50.049 16.568H50.6362V13.7238H49.99C45.7269 13.7238 42.6403 16.6182 42.6403 20.6304C42.6403 24.8062 45.537 27.4802 50.1035 27.4802C52.6662 27.4802 54.2248 28.5367 54.2248 30.2656C54.2248 32.0184 52.5549 33.1906 50.049 33.1906C47.4317 33.1906 45.7902 31.8525 45.8447 29.8203H42.78C42.6119 33.5224 45.5086 36 50.049 36C54.4758 36 57.3725 33.7734 57.3725 30.2939C57.3725 28.2617 56.1479 26.7293 53.9498 25.9195C56.2331 24.9175 57.4577 23.0817 57.4577 20.6304ZM54.6025 16.568V19.1526H54.6046V16.568H54.6025Z" fill="#111827"/>
               <path d="M54.6069 19.1526V16.568H52.018V13.7238H57.4533V18.5588V19.1526H54.6069Z" fill="#ED7D31"/>
               <path d="M60.2104 20.8791C60.2104 16.7579 63.0787 13.6953 67.5624 13.6953C72.0176 13.6953 74.8859 16.7579 74.8859 20.8791C74.8859 25.0004 72.0176 28.063 67.5624 28.063C63.0787 28.063 60.2104 25.0004 60.2104 20.8791ZM71.7666 20.8791C71.7666 18.4845 70.1229 16.5352 67.5624 16.5352C64.9735 16.5352 63.3298 18.4845 63.3298 20.8791C63.3298 23.2738 64.9735 25.2231 67.5624 25.2231C70.1251 25.2231 71.7666 23.2738 71.7666 20.8791Z" fill="#111827"/>
@@ -57,131 +73,90 @@ export const Navbar = ({ onOpenCopilot }) => {
               <path d="M98.4652 8.1377V27.7028H95.2237V13.6713L88.4327 22.2805H87.7342L80.9695 13.6997V27.7028H77.6995V8.1377H80.6617L88.0966 17.6135L95.5314 8.1377H98.4652Z" fill="#111827"/>
               <path d="M102.562 8.1377H105.832V24.6555H116.147V27.7028H102.562V8.1377Z" fill="#111827"/>
             </svg>
-            <span className="goml-badge goml-badge-orange" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+            <span style={{
+              background: '#FFF7ED',
+              color: '#ED7D31',
+              border: '1px solid #FFEDD5',
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '2px 7px',
+              borderRadius: '9999px'
+            }}>
               PreQ
             </span>
           </Link>
+        </div>
 
-          {/* Navigation links */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '1.75rem' }}>
-            <Link
-              to="/"
+        {/* Right Action Bar (Only on other pages, hidden on /new) */}
+        {!isNewInitiative && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {/* Navigation links */}
+            <nav style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginRight: '0.25rem' }}>
+              <Link
+                to="/"
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: isActive('/') ? '#ED7D31' : '#475569',
+                  background: isActive('/') ? '#FFF7ED' : 'transparent',
+                  padding: '5px 12px',
+                  borderRadius: '9999px',
+                  textDecoration: 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Executive Portfolio
+              </Link>
+            </nav>
+
+            <button
+              onClick={onOpenCopilot}
               style={{
-                fontSize: '0.9rem',
+                background: '#FFFFFF',
+                color: '#334155',
+                border: '1px solid #E2E8F0',
+                borderRadius: '9999px',
+                padding: '6px 14px',
+                fontSize: '12.5px',
                 fontWeight: 600,
-                color: isActive('/') ? 'var(--goml-orange)' : 'var(--goml-dark)',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-                borderBottom: isActive('/') ? '2px solid var(--goml-orange)' : '2px solid transparent',
-                paddingBottom: '0.2rem'
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
               }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#ED7D31'; e.currentTarget.style.color = '#ED7D31'; }}
+              onMouseOut={(e) => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#334155'; }}
             >
-              Executive Portfolio
-            </Link>
+              <Sparkles size={14} color="#0F172A" />
+              <span>AI Copilot</span>
+            </button>
+
             <Link
               to="/new"
               style={{
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                color: isActive('/new') ? 'var(--goml-orange)' : 'var(--goml-dark)',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-                borderBottom: isActive('/new') ? '2px solid var(--goml-orange)' : '2px solid transparent',
-                paddingBottom: '0.2rem'
-              }}
-            >
-              New Initiative / SOW
-            </Link>
-          </nav>
-        </div>
-
-        {/* Right Action buttons & User Profile */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-          <button
-            onClick={onOpenCopilot}
-            className="btn-goml btn-goml-outline"
-            style={{ padding: '0.55rem 1.1rem', fontSize: '0.85rem' }}
-          >
-            <Sparkles size={15} color="#ED7D31" />
-            <span>AI Copilot</span>
-          </button>
-
-          <Link
-            to="/new"
-            className="btn-goml btn-goml-black"
-            style={{ padding: '0.55rem 1.25rem', fontSize: '0.85rem' }}
-          >
-            <span>New Initiative</span>
-            <ArrowRight size={15} />
-          </Link>
-
-          {/* Microsoft @goml.io SSO User Badge */}
-          {isAuthenticated && user ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: '#F8FAFC',
-              borderRadius: '100px',
-              padding: '3px 12px 3px 6px',
-              marginLeft: '0.5rem',
-              position: 'relative'
-            }}>
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                background: '#ED7D31',
-                color: '#ffffff',
+                background: '#000000',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '9999px',
+                padding: '7px 16px',
+                fontSize: '12.5px',
                 fontWeight: 700,
-                fontSize: '11px',
-                display: 'flex',
+                textDecoration: 'none',
+                display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                {user.avatar || 'GO'}
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '12.5px', color: '#0F172A', fontWeight: 700 }}>{user.name}</span>
-                  <MicrosoftLogo size={12} />
-                </div>
-                <span style={{ fontSize: '10.5px', color: '#64748B' }}>{user.email}</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSignOut}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: '4px',
-                  cursor: 'pointer',
-                  color: '#94A3B8',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  marginLeft: '4px'
-                }}
-                title="Sign Out of Microsoft @goml.io Session"
-                onMouseOver={(e) => e.currentTarget.style.color = '#DC2626'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#94A3B8'}
-              >
-                <LogOut size={14} />
-              </button>
-            </div>
-          ) : (
-            <Link
-              to="/login"
-              className="btn-goml btn-goml-outline"
-              style={{ padding: '0.55rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#ED7D31'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#000000'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
-              <MicrosoftLogo size={14} />
-              <span>Microsoft Login</span>
+              <span>New Initiative</span>
+              <ArrowRight size={14} />
             </Link>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </header>
   );

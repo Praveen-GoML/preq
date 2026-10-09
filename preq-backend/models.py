@@ -18,6 +18,9 @@ class Project(Base):
     target_kickoff_date = Column(String, default="")
     status = Column(String, default="Kick-off Not Cleared")
     score = Column(Integer, default=0)
+    internal_review_status = Column(String, default="Pending Internal Review (Akshay & Thasleema)")
+    brd_json = Column(Text, nullable=True)
+    proposal_filename = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     items = relationship("ChecklistItem", back_populates="project", cascade="all, delete-orphan")

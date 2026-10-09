@@ -40,12 +40,12 @@ export const EscalateModal = ({ isOpen, onClose, item, onEscalated }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div style={{
-              background: '#fff3eb',
-              border: '1px solid #fcd9c2',
+              background: '#F4F4F5',
+              border: '1px solid #E4E4E7',
               padding: '0.4rem',
               borderRadius: '8px'
             }}>
-              <ShieldAlert size={20} color="#ED7D31" />
+              <ShieldAlert size={20} color="#0F172A" />
             </div>
             <div>
               <h3 style={{ fontSize: '1.25rem', margin: 0, color: '#111827' }}>Trigger SLA Escalation / Nudge</h3>

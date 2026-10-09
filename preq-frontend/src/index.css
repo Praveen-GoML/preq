@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@300;400;500;600;700;800&family=Inconsolata:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inconsolata:wght@400;600;700&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700&display=swap');
 
 :root {
   --goml-orange: #ED7D31;
@@ -7,8 +7,8 @@
   --goml-orange-border: #fcd9c2;
   
   --goml-black: #000000;
-  --goml-dark: #111827;
-  --goml-gray-900: #1e293b;
+  --goml-dark: #0F172A;
+  --goml-gray-900: #0F172A;
   --goml-gray-700: #334155;
   --goml-gray-600: #475569;
   --goml-gray-500: #64748b;
@@ -30,7 +30,7 @@
   --goml-danger-bg: #fef2f2;
   --goml-danger-border: #fecaca;
   
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
 }
 
@@ -46,6 +46,26 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Modern Thin Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 /* Announcement Top Banner */
@@ -255,46 +275,46 @@ h1, h2, h3, h4, h5, h6 {
   background-color: #fafbfc;
 }
 
-/* Clean Badges */
+/* Clean Badges (Orange, Black, White Brand System) */
 .goml-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.25rem 0.65rem;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 9999px;
   line-height: 1;
 }
 
 .goml-badge-cleared {
-  background: var(--goml-success-bg);
-  color: var(--goml-success);
-  border: 1px solid var(--goml-success-border);
+  background: #000000;
+  color: #FFFFFF;
+  border: 1px solid #27272A;
 }
 
 .goml-badge-risk {
-  background: var(--goml-warning-bg);
-  color: var(--goml-warning);
-  border: 1px solid var(--goml-warning-border);
+  background: #FFF7ED;
+  color: #EA580C;
+  border: 1px solid #FED7AA;
 }
 
 .goml-badge-critical {
-  background: var(--goml-danger-bg);
-  color: var(--goml-danger);
-  border: 1px solid var(--goml-danger-border);
+  background: #FFF7ED;
+  color: #EA580C;
+  border: 1px solid #FED7AA;
 }
 
 .goml-badge-orange {
-  background: var(--goml-orange-light);
-  color: var(--goml-orange);
-  border: 1px solid var(--goml-orange-border);
+  background: #FFF7ED;
+  color: #ED7D31;
+  border: 1px solid #FFEDD5;
 }
 
 .goml-badge-neutral {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: #F4F4F5;
+  color: #18181B;
+  border: 1px solid #E4E4E7;
 }
 
 /* Forms */
@@ -383,3 +403,75 @@ h1, h2, h3, h4, h5, h6 {
     border: 2px solid #ED7D31 !important;
   }
 }
+
+/* AI SOW Analyzer Sleek Animations */
+@keyframes gomlRadarWave {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes gomlSpinGrad {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gomlScanBeam {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+@keyframes gomlPulseSoft {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.88;
+  }
+}
+
+@keyframes gomlGlowBeacon {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(237, 125, 49, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(237, 125, 49, 0);
+  }
+}
+
+@keyframes gomlFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gomlScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+

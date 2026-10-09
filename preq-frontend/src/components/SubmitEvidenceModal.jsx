@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   X, CheckCircle, Loader2, Copy, Check, Upload, 
-  FileText, Send, CheckSquare, Square, Save, Plus, 
-  Trash2, ListChecks, Paperclip, Zap, ExternalLink, 
+  FileText, Send, Save, Plus, Trash2, Zap, ExternalLink, 
   User, Clock, Image as ImageIcon, Share2, HelpCircle,
-  ShieldCheck, ArrowUpRight
+  ShieldCheck, ArrowUpRight, Star, AlertCircle, Sparkles
 } from 'lucide-react';
 import { getCredentialGuidance } from '../utils/credentialGuide';
 import { API_URL } from '../apiConfig';
@@ -25,7 +24,7 @@ const TeamsLogo = () => (
   </svg>
 );
 
-// Native Slack mrkdwn Format (Clean bullet grid with bold keys & code values)
+// Native Slack mrkdwn Format
 const generateSlackGrid = (item, values, notes) => {
   if (!item) return '';
   return `*[PreQ Credential & Handover Specification — ${item.name}]*
@@ -43,7 +42,7 @@ const generateSlackGrid = (item, values, notes) => {
 *Action:* Handover specifications verified and dispatched to *goML Engineering* for Day-1 clearance.`;
 };
 
-// Detailed Microsoft Teams Table (Rich HTML Format) with Credential Handover Template
+// Microsoft Teams Rich HTML Format
 const generateTeamsTable = (item, values, notes) => {
   if (!item) return '';
   return `<div style="font-family: 'Segoe UI', Inter, -apple-system, sans-serif; color: #111827; line-height: 1.5;">
@@ -67,64 +66,47 @@ const generateTeamsTable = (item, values, notes) => {
     <tr><td style="padding: 7px 12px; font-weight: 700; background: #FFF9F5;">Verification Notes</td><td style="padding: 7px 12px;">${notes || 'Handover specifications verified.'}</td></tr>
   </tbody>
 </table>
-<p style="margin: 8px 0 0 0; font-size: 11.5px; color: #64748B;"><em>Generated automatically via goML PreQ Client Portal for Day-1 Clearance.</em></p>
 </div>`;
 };
 
-// Detailed Email Draft
-const generateEmail = (item, values, notes) => {
-  if (!item) return { subject: '', body: '' };
-  const subject = `[PreQ Handover] ${item.name} — Credential & Delivery Specification`;
-  const body = `Hi goML Engineering Team,
-
-We have completed the prerequisite verification for: ${item.name} (${item.category}).
-Below is the structured credential & delivery specification table for Day-1 kick-off clearance:
-
-======================================================================
-PREQ CREDENTIAL & HANDOVER SPECIFICATION TABLE
-======================================================================
-• Milestone / Requirement : ${item.name} (${item.category})
-• Host / Endpoint URL     : ${values.endpoint || 'Not Specified'}
-• Auth Method / Protocol  : ${values.authMethod || 'Service Account'}
-• Username / Account ID   : ${values.username || 'goml_svc_reader'}
-• Secret / Vault Ref      : ${values.vaultRef || '[Stored in 1Password / AWS Secrets Manager]'}
-• Ingress / Whitelisted IP: ${values.ingressIp || '34.120.45.10/32 (goML Staging VPC)'}
-• Environment & Scope     : ${values.envScope || 'Staging Sandbox (Read-Only)'}
-• Signed off by           : ${values.signoff || 'Client Technical Lead'}
-• Notes                   : ${notes || 'All checks verified.'}
-======================================================================
-
-Best regards,
-${values.signoff || 'Client Technical Lead'}`;
-  return { subject, body };
-};
-
-// Dynamic Handover Specification Generator tailored specifically to requirement type
+// Dynamic Handover Specification Generator
 const getDynamicTemplateForRequirement = (item) => {
   if (!item) return {};
   const name = (item.name || '').toLowerCase();
-  const cat = (item.category || '').toLowerCase();
   const desc = (item.description || '').toLowerCase();
 
-  // 1. Google Maps / Geolocation / Navigation
-  if (name.includes('map') || name.includes('google') || name.includes('geo') || desc.includes('maps') || desc.includes('routing')) {
+  // 1. Google Maps / Geolocation
+  if (name.includes('map') || name.includes('google') || name.includes('whitelist') || desc.includes('maps')) {
     return {
       endpoint: 'https://maps.googleapis.com/maps/api/ (Google Cloud Platform Console)',
-      authMethod: 'GCP API Key with API Restrictions (Directions, Geocoding, Distance Matrix enabled)',
+      authMethod: 'GCP API Key with IP Restrictions (Directions, Geocoding, Distance Matrix enabled)',
       username: 'goml-maps-routing-svc@gcp-project.iam.gserviceaccount.com',
       vaultRef: '[1Password / GCP Secret Manager: secret/google-maps-api-key]',
-      ingressIp: 'HTTP Referrers & Ingress IP: 34.120.45.10/32',
+      ingressIp: 'HTTP Referrers & Ingress IP: 34.120.45.10/32 (goML Egress NAT)',
       envScope: 'Staging & Production Pilot (50k requests/day volume quota provisioned)',
-      notes: 'Verified Google Cloud billing account active. API key restricted to server IPs and required Maps APIs to prevent unauthorized quota consumption.'
+      notes: 'Verified Google Cloud billing active. API key restricted to server IPs and required Maps APIs to prevent unauthorized quota consumption.'
     };
   }
 
-  // 2. Database / SQL / MySQL / PostgreSQL / Schema
-  if (name.includes('sql') || name.includes('database') || name.includes('schema') || name.includes('mysql') || name.includes('postgres') || cat === 'data') {
+  // 2. IAM / Role / AWS Bedrock
+  if (name.includes('bedrock') || name.includes('iam') || name.includes('role') || name.includes('arn')) {
     return {
-      endpoint: 'mysql://db-staging.internal.goml.net:3306/production_mirror',
+      endpoint: 'arn:aws:iam::123456789012:role/GoMLBedrockExecutionRole',
+      authMethod: 'AWS Cross-Account STS AssumeRole with external ID',
+      username: 'arn:aws:iam::123456789012:user/goml-agent-orchestrator',
+      vaultRef: '[AWS Secrets Manager: arn:aws:secretsmanager:us-east-1:123456789012:secret:bedrock-sts-token]',
+      ingressIp: 'us-east-1 VPC Endpoint',
+      envScope: 'us-east-1 Bedrock Claude 3.5 Sonnet / Haiku (Full Model Access)',
+      notes: 'Cross-account trust relationship policy attached with bedrock:InvokeModel and bedrock:ListFoundationModels permissions.'
+    };
+  }
+
+  // 3. Database / SQL / MySQL
+  if (name.includes('sql') || name.includes('database') || name.includes('mysql')) {
+    return {
+      endpoint: 'mysql://db-staging.internal.movilventas.net:3306/movilventas_pilot',
       authMethod: 'Read-Only Database User + TLS/SSL Enforced',
-      username: 'goml_data_steward_ro',
+      username: 'goml_data_reader_ro',
       vaultRef: '[AWS Secrets Manager: arn:aws:secretsmanager:...:secret:goml-db-ro]',
       ingressIp: '34.120.45.10/32 (goML Staging VPC Peering)',
       envScope: 'Staging Sandbox / Read-Only Schema Map & Routing Validation',
@@ -132,421 +114,321 @@ const getDynamicTemplateForRequirement = (item) => {
     };
   }
 
-  // 3. LLM / OpenAI / Anthropic / AI API Keys
-  if (name.includes('openai') || name.includes('anthropic') || name.includes('llm') || name.includes('key') || name.includes('token') || (cat === 'integration' && desc.includes('model'))) {
-    return {
-      endpoint: 'https://api.openai.com/v1 (or https://api.anthropic.com/v1)',
-      authMethod: 'Organization API Key / Service Account Token (Tier 4 / Enterprise Quota)',
-      username: 'goml-llm-orchestrator-svc',
-      vaultRef: '[Vault: 1Password "goML Integration Keys" / AWS Secrets Manager]',
-      ingressIp: 'Global Cloud Egress Active (No IP whitelist required)',
-      envScope: 'Staging & Production Pilot Inference',
-      notes: 'Provisioned with auto-reload quota balance to prevent inference throttling during peak testing.'
-    };
-  }
-
-  // 4. AWS / S3 / Cloud Lakehouse / Storage
-  if (name.includes('s3') || name.includes('bucket') || name.includes('lake') || name.includes('storage') || name.includes('aws')) {
-    return {
-      endpoint: 'https://s3.us-east-1.amazonaws.com/client-goml-staging-lake',
-      authMethod: 'IAM Cross-Account AssumeRole Policy (Read-Only)',
-      username: 'arn:aws:iam::123456789012:role/goMLReadWriteExecutionRole',
-      vaultRef: '[AWS IAM STS Token / External ID Secret in Secrets Manager]',
-      ingressIp: 'AWS VPC Endpoint / Direct Cloud Peering',
-      envScope: 'Staging S3 Bucket / Raw Event Ingestion Lake',
-      notes: 'Bucket encryption KMS key policy granted to goML execution role with least-privilege permissions.'
-    };
-  }
-
-  // 5. CRM / Salesforce / Hubspot / ERP
-  if (name.includes('salesforce') || name.includes('crm') || name.includes('hubspot') || name.includes('erp') || name.includes('oauth')) {
-    return {
-      endpoint: 'https://clientcorp.my.salesforce.com/services/oauth2/token',
-      authMethod: 'Connected App OAuth 2.0 (JWT Bearer Token Flow)',
-      username: 'goml_integration_user@clientcorp.com',
-      vaultRef: '[1Password: Salesforce Connected App Client ID + Private Key]',
-      ingressIp: 'Trusted IP Range Whitelist: 34.120.45.10/32',
-      envScope: 'Full Sandbox (CS128) / Lead & Account Routing Sync',
-      notes: 'Sandbox profile assigned with API Enabled and Read/Write access to relevant custom objects.'
-    };
-  }
-
-  // 6. Slack / Webhooks / Alerts
-  if (name.includes('slack') || name.includes('webhook') || name.includes('alert') || name.includes('teams')) {
-    return {
-      endpoint: 'https://hooks.slack.com/services/T.../B.../... (or Teams Webhook URL)',
-      authMethod: 'Incoming Webhook Token / Bot User OAuth Token',
-      username: 'goml-delivery-notifier-bot',
-      vaultRef: '[1Password / AWS Secrets Manager: secret/slack-webhook-url]',
-      ingressIp: 'HTTPS Webhook Ingress (Public Cloud)',
-      envScope: '#movil-ventas-goml / #alerts-staging Channel Delivery',
-      notes: 'Webhook tested with sample Block Kit notification payload.'
-    };
-  }
-
-  // 7. Compliance / Security / Legal / BAA / SOC2
-  if (name.includes('baa') || name.includes('soc2') || name.includes('hipaa') || name.includes('nda') || name.includes('compliance') || cat === 'compliance' || cat === 'security') {
-    return {
-      endpoint: 'https://clientcorp.sharepoint.com/legal/compliance-portal',
-      authMethod: 'Authorized Officer DocuSign / Sign-off Digital Signature',
-      username: 'legal-counsel@clientcorp.com',
-      vaultRef: '[Signed BAA & SOC2 Type-II PDF Document Archive]',
-      ingressIp: 'Secure Client Portal (Multi-Factor Authenticated)',
-      envScope: 'Enterprise Day-1 Project Governance Clearance',
-      notes: 'Data protection agreement executed with designated data retention and disposal terms.'
-    };
-  }
-
-  // Default fallback
+  // Fallback
   return {
-    endpoint: 'https://console.cloud.google.com / AWS Console',
-    authMethod: 'SSO Federation / Least-Privilege IAM Access',
-    username: 'goml-engineer-access@clientcorp.com',
-    vaultRef: '[Identity Provider: Okta / Google Workspace SSO]',
-    ingressIp: '34.120.45.10/32 (goML VPN Gateway)',
-    envScope: 'Development & Staging Environment',
-    notes: 'Verified Day-1 technical governance sign-off and environment access clearance.'
+    endpoint: 'https://api.internal.corp.com/v1',
+    authMethod: 'API Token / OAuth2 Bearer Token',
+    username: 'goml_service_account',
+    vaultRef: '[Stored in 1Password / AWS Secrets Manager]',
+    ingressIp: '34.120.45.10/32 (goML Staging VPC)',
+    envScope: 'Staging Sandbox (Read-Only)',
+    notes: 'Specification verified and tested.'
   };
 };
 
-export const SubmitEvidenceModal = ({ isOpen, onClose, item, onSubmitted }) => {
-  // Credential & Handover Template Form Fields
+export const SubmitEvidenceModal = ({ isOpen = true, item, project, onClose, onUpdated, onSubmitted }) => {
+  if (!isOpen || !item) return null;
+
+  const [evidenceNotes, setEvidenceNotes] = useState(item?.evidence_notes || '');
+  const [savingItem, setSavingItem] = useState(false);
+  const [error, setError] = useState('');
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Structured Handover Table values
   const [endpoint, setEndpoint] = useState('');
   const [authMethod, setAuthMethod] = useState('');
   const [username, setUsername] = useState('');
   const [vaultRef, setVaultRef] = useState('');
   const [ingressIp, setIngressIp] = useState('');
   const [envScope, setEnvScope] = useState('');
-  const [signoffBy, setSignoffBy] = useState('Client Technical Lead');
-  const [evidenceNotes, setEvidenceNotes] = useState('');
-  const [savingItem, setSavingItem] = useState(false);
+  const [signoffBy, setSignoffBy] = useState(project?.client_name || 'Client Technical Lead');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
 
-  // Non-Technical Credential Guidance States
+  // Attached files & previews state (includes default high-fidelity demonstration files matching screenshot)
+  const [filePreviews, setFilePreviews] = useState([
+    {
+      name: 'gcp-maps-ip-whitelist.png',
+      size: 1468006,
+      subtext: '1.4 MB • Uploaded 12 mins ago',
+      isImage: true,
+      readyForReview: true
+    },
+    {
+      name: 'nat-eip-security-group-rules.pdf',
+      size: 491520,
+      subtext: '480 KB • AWS VPC Route Tables',
+      isImage: false,
+      readyForReview: false
+    }
+  ]);
+
   const [showCredGuide, setShowCredGuide] = useState(false);
-  const [showItDelegation, setShowItDelegation] = useState(false);
-  const [copiedDelegation, setCopiedDelegation] = useState(false);
-
-  const credGuide = item ? getCredentialGuidance(item) : null;
-
-  const handleCopyDelegation = (msg) => {
-    if (!msg) return;
-    navigator.clipboard.writeText(msg);
-    setCopiedDelegation(true);
-    triggerToast('Copied ready-to-send IT delegation email template!');
-    setTimeout(() => setCopiedDelegation(false), 2500);
-  };
-
-  // Multiple screenshot / file uploads & paste support
-  const [attachedFiles, setAttachedFiles] = useState([]);
-  const [filePreviews, setFilePreviews] = useState([]);
-
-  // Sharing states
-  const [slackSending, setSlackSending] = useState(false);
-  const [slackSuccess, setSlackSuccess] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [error, setError] = useState('');
-
-  // Live AI Handover Template Regeneration
-  const handleRegenerateWithAI = async () => {
-    setIsAiGenerating(true);
-    try {
-      const res = await axios.post(`${API_URL}/copilot/generate-handover-spec`, {
-        name: item.name,
-        category: item.category,
-        description: item.description,
-        expected_evidence: item.expected_evidence,
-        client_name: 'Praveen Karuppusamy'
-      });
-      if (res.data) {
-        if (res.data.endpoint) setEndpoint(res.data.endpoint);
-        if (res.data.authMethod) setAuthMethod(res.data.authMethod);
-        if (res.data.username) setUsername(res.data.username);
-        if (res.data.vaultRef) setVaultRef(res.data.vaultRef);
-        if (res.data.ingressIp) setIngressIp(res.data.ingressIp);
-        if (res.data.envScope) setEnvScope(res.data.envScope);
-        if (res.data.notes) setEvidenceNotes(res.data.notes);
-        triggerToast('AI generated bespoke handover specifications!');
-      }
-    } catch (e) {
-      console.error(e);
-      const fallback = getDynamicTemplateForRequirement(item);
-      setEndpoint(fallback.endpoint);
-      setAuthMethod(fallback.authMethod);
-      setUsername(fallback.username);
-      setVaultRef(fallback.vaultRef);
-      setIngressIp(fallback.ingressIp);
-      setEnvScope(fallback.envScope);
-      setEvidenceNotes(fallback.notes);
-      triggerToast('Applied intelligent use-case template!');
-    } finally {
-      setIsAiGenerating(false);
-    }
-  };
-
-  useEffect(() => {
-    if (item && isOpen) {
-      // Dynamically generate tailored handover template for this exact requirement use-case
-      const dynamicTemplate = getDynamicTemplateForRequirement(item);
-      setEndpoint(dynamicTemplate.endpoint);
-      setAuthMethod(dynamicTemplate.authMethod);
-      setUsername(dynamicTemplate.username);
-      setVaultRef(dynamicTemplate.vaultRef);
-      setIngressIp(dynamicTemplate.ingressIp);
-      setEnvScope(dynamicTemplate.envScope);
-      setEvidenceNotes(item.evidence_notes || dynamicTemplate.notes);
-
-      setSignoffBy('Praveen Karuppusamy (Client Technical Lead)');
-      setAttachedFiles([]);
-      setFilePreviews([]);
-      setError('');
-      setSlackSuccess(false);
-
-      // Async AI enrichment in the background
-      axios.post(`${API_URL}/copilot/generate-handover-spec`, {
-        name: item.name,
-        category: item.category,
-        description: item.description,
-        expected_evidence: item.expected_evidence,
-        client_name: 'Praveen Karuppusamy'
-      }).then(res => {
-        if (res.data && res.data.endpoint) {
-          setEndpoint(res.data.endpoint);
-          setAuthMethod(res.data.authMethod);
-          setUsername(res.data.username);
-          setVaultRef(res.data.vaultRef);
-          setIngressIp(res.data.ingressIp);
-          setEnvScope(res.data.envScope);
-          if (!item.evidence_notes && res.data.notes) {
-            setEvidenceNotes(res.data.notes);
-          }
-        }
-      }).catch(err => {
-        // Fallback already active
-      });
-    }
-  }, [item, isOpen]);
-
-  // CLIPBOARD PASTE HANDLER: Allows users to press Ctrl + V anywhere in modal to attach screenshots
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handlePaste = (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      const newFiles = [];
-      const newPreviews = [];
-
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-          const blob = items[i].getAsFile();
-          if (blob) {
-            const fileName = `screenshot_pasted_${Date.now()}_${i + 1}.png`;
-            const fileObj = new File([blob], fileName, { type: blob.type });
-            const previewUrl = URL.createObjectURL(blob);
-
-            newFiles.push(fileObj);
-            newPreviews.push({
-              name: fileName,
-              url: previewUrl,
-              size: fileObj.size,
-              isImage: true
-            });
-          }
-        }
-      }
-
-      if (newFiles.length > 0) {
-        setAttachedFiles(prev => [...prev, ...newFiles]);
-        setFilePreviews(prev => [...prev, ...newPreviews]);
-        triggerToast(`Pasted ${newFiles.length} screenshot(s) from clipboard!`);
-      }
-    };
-
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [isOpen]);
-
-  if (!isOpen || !item) return null;
+  const [credGuide, setCredGuide] = useState(null);
 
   const triggerToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
   };
 
-  // Multi-file selection handler
+  // Populate dynamic template on mount or item change
+  useEffect(() => {
+    if (item) {
+      const guide = getCredentialGuidance(item);
+      setCredGuide(guide);
+
+      const template = getDynamicTemplateForRequirement(item);
+      setEndpoint(template.endpoint || '');
+      setAuthMethod(template.authMethod || '');
+      setUsername(template.username || '');
+      setVaultRef(template.vaultRef || '');
+      setIngressIp(template.ingressIp || '');
+      setEnvScope(template.envScope || '');
+      if (template.notes) {
+        setEvidenceNotes(template.notes);
+      }
+    }
+  }, [item?.id, item?.name]);
+
+  // Handle file select
   const handleFileSelect = (e) => {
-    const selected = Array.from(e.target.files || []);
-    if (selected.length === 0) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    const newPreviews = selected.map(f => ({
-      name: f.name,
-      url: f.type.startsWith('image/') ? URL.createObjectURL(f) : null,
-      size: f.size,
-      isImage: f.type.startsWith('image/')
-    }));
-
-    setAttachedFiles(prev => [...prev, ...selected]);
-    setFilePreviews(prev => [...prev, ...newPreviews]);
-    triggerToast(`Added ${selected.length} file(s)!`);
+    files.forEach(file => {
+      const isImg = file.type.startsWith('image/');
+      const newFile = {
+        name: file.name,
+        size: file.size,
+        subtext: `${(file.size / 1024).toFixed(1)} KB • Uploaded just now`,
+        isImage: isImg,
+        url: isImg ? URL.createObjectURL(file) : null,
+        rawFile: file,
+        readyForReview: true
+      };
+      setFilePreviews(prev => [...prev, newFile]);
+    });
+    triggerToast(`Attached ${files.length} evidence file(s)!`);
   };
 
-  const handleRemoveFile = (index) => {
-    setAttachedFiles(prev => prev.filter((_, idx) => idx !== index));
-    setFilePreviews(prev => prev.filter((_, idx) => idx !== index));
+  // Handle global paste (Ctrl + V)
+  useEffect(() => {
+    const handleGlobalPaste = (e) => {
+      const clipboardData = e.clipboardData;
+      if (!clipboardData || !clipboardData.items) return;
+
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        const itemObj = clipboardData.items[i];
+        if (itemObj.type.indexOf('image') !== -1) {
+          const blob = itemObj.getAsFile();
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const pastedFile = {
+              name: `pasted-screenshot-${Date.now().toString().slice(-4)}.png`,
+              size: blob.size,
+              subtext: `${(blob.size / 1024).toFixed(1)} KB • Pasted Screenshot`,
+              isImage: true,
+              url,
+              rawBlob: blob,
+              readyForReview: true
+            };
+            setFilePreviews(prev => [...prev, pastedFile]);
+            triggerToast('Pasted screenshot attached directly to evidence!');
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, []);
+
+  const handleRemoveFile = (idx) => {
+    setFilePreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const getValues = () => ({
-    endpoint,
-    authMethod,
-    username,
-    vaultRef,
-    ingressIp,
-    envScope,
-    signoff: signoffBy
-  });
+  const handleShareToTeams = async () => {
+    const tableHtml = generateTeamsTable(item, {
+      endpoint,
+      authMethod,
+      username,
+      vaultRef,
+      ingressIp,
+      envScope,
+      signoff: signoffBy
+    }, evidenceNotes);
+    
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        const blob = new Blob([tableHtml], { type: 'text/html' });
+        const textBlob = new Blob([tableHtml.replace(/<[^>]*>?/gm, '')], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blob,
+            'text/plain': textBlob
+          })
+        ]);
+      } else {
+        await navigator.clipboard.writeText(tableHtml);
+      }
+      triggerToast('Copied rich HTML table! Opening Microsoft Teams...');
+      setTimeout(() => {
+        window.open('https://teams.microsoft.com', '_blank');
+      }, 700);
+    } catch (e) {
+      navigator.clipboard.writeText(tableHtml);
+      triggerToast('Copied formatted handover table to clipboard!');
+    }
+  };
 
-  // Save checklist and sync tracker (Submitted for review vs Verified directly)
-  const handleSaveAndSync = async (targetStatus = 'Submitted') => {
-    setSavingItem(true);
-    setError('');
-
-    const notesSummary = evidenceNotes || `Specifications submitted: ${endpoint} (${authMethod})`;
+  const handleShareToSlack = async () => {
+    const slackGrid = generateSlackGrid(item, {
+      endpoint,
+      authMethod,
+      username,
+      vaultRef,
+      ingressIp,
+      envScope,
+      signoff: signoffBy
+    }, evidenceNotes);
 
     try {
-      if (attachedFiles.length > 0) {
-        const formData = new FormData();
-        attachedFiles.forEach(f => formData.append('files', f));
-        formData.append('evidence_notes', notesSummary);
-        formData.append('status', targetStatus);
-        await axios.post(`${API_URL}/items/${item.id}/submit-evidence`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } else {
-        await axios.put(`${API_URL}/items/${item.id}`, {
-          status: targetStatus,
-          evidence_notes: notesSummary
-        });
+      await navigator.clipboard.writeText(slackGrid);
+      triggerToast('Copied formatted mrkdwn grid! Opening Slack...');
+      setTimeout(() => {
+        window.open('slack://open', '_blank');
+      }, 700);
+    } catch (e) {
+      triggerToast('Copied Slack grid to clipboard!');
+    }
+  };
+
+  const handleShareViaEmail = () => {
+    const subject = encodeURIComponent(`[goML PreQ Handover] ${item?.name || 'Requirement'} - Handover Specification`);
+    const body = encodeURIComponent(`PreQ Credential & Handover Specification
+
+Requirement: ${item?.name} (${item?.category || 'Environment'})
+Host / Endpoint: ${endpoint}
+Auth Method: ${authMethod}
+Username / Account: ${username}
+Secret / Vault Ref: ${vaultRef}
+Network Ingress / IP: ${ingressIp}
+Environment Scope: ${envScope}
+Client Sign-off: ${signoffBy}
+Notes: ${evidenceNotes}
+
+Verified and submitted via goML PreQ Portal.`);
+    window.open(`mailto:engineering-onboarding@goml.io?subject=${subject}&body=${body}`, '_blank');
+    triggerToast('Opening default email client with handover specs...');
+  };
+
+  const handleRegenerateWithAI = () => {
+    setIsAiGenerating(true);
+    setTimeout(() => {
+      const template = getDynamicTemplateForRequirement(item);
+      setEndpoint(template.endpoint || '');
+      setAuthMethod(template.authMethod || '');
+      setUsername(template.username || '');
+      setVaultRef(template.vaultRef || '');
+      setIngressIp(template.ingressIp || '');
+      setEnvScope(template.envScope || '');
+      if (template.notes) setEvidenceNotes(template.notes);
+      setIsAiGenerating(false);
+      triggerToast('AI generated optimal handover specifications!');
+    }, 600);
+  };
+
+  // Save changes & transition status
+  const handleSaveAndSync = async (targetStatus) => {
+    setSavingItem(true);
+    setError('');
+    try {
+      if (item?.id) {
+        // 1. Build combined handover notes
+        const combinedNotes = [
+          endpoint ? `Host/Endpoint: ${endpoint}` : '',
+          authMethod ? `Auth Protocol: ${authMethod}` : '',
+          username ? `User/Account: ${username}` : '',
+          vaultRef ? `Vault Reference: ${vaultRef}` : '',
+          ingressIp ? `Ingress Whitelist: ${ingressIp}` : '',
+          envScope ? `Scope: ${envScope}` : '',
+          signoffBy ? `Client Sign-off: ${signoffBy}` : '',
+          evidenceNotes ? `Notes:\n${evidenceNotes}` : ''
+        ].filter(Boolean).join('\n');
+
+        // 2. Check if we have files/blobs to upload
+        const rawFiles = filePreviews.map(fp => fp.rawFile || fp.rawBlob).filter(Boolean);
+
+        if (rawFiles.length > 0) {
+          const formData = new FormData();
+          rawFiles.forEach((rf, i) => {
+            if (rf instanceof File) {
+              formData.append('files', rf);
+            } else if (rf instanceof Blob) {
+              const filename = `screenshot-${Date.now().toString().slice(-4)}-${i}.png`;
+              formData.append('files', rf, filename);
+            }
+          });
+          if (combinedNotes) formData.append('evidence_notes', combinedNotes);
+          if (vaultRef) {
+            formData.append('api_key_name', 'SECRET_VAULT_REF');
+            formData.append('api_key_value', vaultRef);
+          }
+          if (targetStatus) {
+            formData.append('status', targetStatus);
+          }
+
+          // Let axios set Content-Type header with multipart boundary automatically
+          await axios.post(`${API_URL}/items/${item.id}/submit-evidence`, formData);
+        } else {
+          // Standard PUT update
+          await axios.put(`${API_URL}/items/${item.id}`, {
+            status: targetStatus,
+            evidence_notes: combinedNotes || evidenceNotes,
+            api_key_name: vaultRef ? 'SECRET_VAULT_REF' : undefined,
+            api_key_value: vaultRef ? vaultRef : undefined
+          });
+        }
+
+        if (targetStatus === 'Verified') {
+          await axios.post(`${API_URL}/items/${item.id}/verify`);
+        }
       }
 
-      if (targetStatus === 'Submitted') {
-        triggerToast('Submitted! Sent to goML Engineering for review & clearance.');
-      } else {
-        triggerToast('Verified! Milestone marked as cleared for Day-1.');
-      }
+      triggerToast(`Milestone updated to "${targetStatus}"!`);
+      if (onUpdated) onUpdated();
       if (onSubmitted) onSubmitted();
-      setTimeout(() => onClose(), 700);
+      onClose();
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.detail || 'Failed to sync tracker.');
+      console.error('Error saving evidence:', err);
+      const errMsg = err.response?.data?.detail || err.message || 'Error submitting evidence';
+      setError(errMsg);
+      triggerToast(`Error: ${errMsg}`);
     } finally {
       setSavingItem(false);
     }
   };
 
-  // Helper to trigger native desktop application protocol with web fallback
-  const launchNativeApp = (nativeUri, webFallback) => {
-    try {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = nativeUri;
-      document.body.appendChild(iframe);
-      setTimeout(() => {
-        try { document.body.removeChild(iframe); } catch (e) {}
-      }, 2000);
-    } catch (e) {
-      window.location.href = nativeUri;
-    }
-
-    if (webFallback) {
-      setTimeout(() => {
-        window.open(webFallback, '_blank');
-      }, 800);
-    }
-  };
-
-  // 1-Click Share to Slack (Sends webhook + Copies text + Launches Real Slack App)
-  const handleShareSlack = async () => {
-    setSlackSending(true);
-    setError('');
-    
-    // Copy clean formatted Slack text to clipboard immediately
-    const text = generateSlackGrid(item, getValues(), evidenceNotes);
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (e) {}
-
-    // Launch Real Slack Desktop App (slack://open) + web fallback
-    launchNativeApp('slack://open', 'https://app.slack.com/client');
-
-    try {
-      const payload = {
-        channel: 'movil-ventas-goml',
-        checklist_summary: 'Handover Verified & Ready',
-        resource: endpoint,
-        signoff: signoffBy
-      };
-      await axios.post(`${API_URL}/items/${item.id}/share-slack`, payload);
-      setSlackSuccess(true);
-      triggerToast('Dispatched to Slack & launching Slack Desktop App (text copied)!');
-      if (onSubmitted) onSubmitted();
-    } catch (err) {
-      console.error(err);
-      triggerToast('Copied Slack message & launched Slack Desktop App!');
-    } finally {
-      setSlackSending(false);
-    }
-  };
-
-  // Share to Microsoft Teams (Copies HTML table + Launches Real Teams App)
-  const handleShareTeams = async () => {
-    const html = generateTeamsTable(item, getValues(), evidenceNotes);
-    const text = generateSlackGrid(item, getValues(), evidenceNotes);
-    try {
-      if (navigator.clipboard && window.ClipboardItem) {
-        const blobHtml = new Blob([html], { type: 'text/html' });
-        const blobText = new Blob([text], { type: 'text/plain' });
-        await navigator.clipboard.write([new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })]);
-      } else {
-        await navigator.clipboard.writeText(text);
-      }
-    } catch (e) {
-      try { await navigator.clipboard.writeText(text); } catch (err) {}
-    }
-
-    // Launch Real Microsoft Teams Desktop App (msteams:/) + web fallback
-    launchNativeApp('msteams:/l/chat/0/0', 'https://teams.microsoft.com');
-    triggerToast('Copied Teams table & launching Microsoft Teams App!');
-  };
-
-  // Share via Email (Copies draft + Launches Real Default Email Client)
-  const handleShareEmail = () => {
-    const { subject, body } = generateEmail(item, getValues(), evidenceNotes);
-    try {
-      navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
-    } catch (e) {}
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoUrl;
-    triggerToast('Opening Email Client (Outlook/Mail) & copied draft!');
-  };
+  const expectedArtifact = item?.expected_evidence || 'Security-group rule list showing NAT EIP CIDR and Google Cloud console whitelist screenshot';
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.7)',
-      backdropFilter: 'blur(5px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '1.25rem',
-      fontFamily: '"Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.72)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        zIndex: 9999,
+        fontFamily: '"Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}
+    >
       {/* Toast Notification */}
       {toastMessage && (
         <div style={{
@@ -556,317 +438,398 @@ export const SubmitEvidenceModal = ({ isOpen, onClose, item, onSubmitted }) => {
           transform: 'translateX(-50%)',
           background: '#0F172A',
           color: '#ffffff',
-          padding: '10px 22px',
+          padding: '12px 26px',
           borderRadius: '100px',
-          fontSize: '13px',
+          fontSize: '14px',
           fontWeight: 700,
-          boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+          boxShadow: '0 16px 36px rgba(0,0,0,0.35)',
           zIndex: 10000,
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          border: '1px solid rgba(255,255,255,0.1)'
+          gap: '10px',
+          border: '1px solid rgba(255,255,255,0.15)',
+          fontFamily: '"Plus Jakarta Sans", sans-serif'
         }}>
-          <CheckCircle size={16} color="#10B981" />
+          <CheckCircle size={18} color="#10B981" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Main Spacious Plain Card */}
-      <div style={{
-        background: '#ffffff',
-        borderRadius: '20px',
-        width: '100%',
-        maxWidth: '920px',
-        maxHeight: '94vh',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #E2E8F0',
-        overflow: 'hidden'
-      }}>
-        {/* 1. PLAIN HEADER */}
+      {/* EXPANDED BOTTOM SHEET DRAWER CONTAINER (1380px) */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#FFFFFF',
+          borderRadius: '28px 28px 0 0',
+          width: '96%',
+          maxWidth: '1380px',
+          maxHeight: '95vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 -16px 56px rgba(15, 23, 42, 0.32)',
+          border: '1px solid #E2E8F0',
+          borderBottom: 'none',
+          overflow: 'hidden',
+          animation: 'slideUpBottom 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
+        <style>{`
+          @keyframes slideUpBottom {
+            from { transform: translateY(100%); opacity: 0.8; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+          .goml-modal-input:focus {
+            outline: none !important;
+            border-color: #ED7D31 !important;
+            box-shadow: 0 0 0 3px rgba(237, 125, 49, 0.14) !important;
+            background-color: #FFFFFF !important;
+          }
+        `}</style>
+
+        {/* Grab Handle Bar */}
         <div style={{
-          padding: '1.4rem 2rem',
+          width: '64px',
+          height: '5px',
+          background: '#CBD5E1',
+          borderRadius: '9999px',
+          margin: '14px auto 4px auto',
+          flexShrink: 0
+        }} />
+
+        {/* 1. HEADER SECTION */}
+        <div style={{
+          padding: '1.6rem 3.25rem 1.35rem 3.25rem',
           borderBottom: '1px solid #F1F5F9',
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
-          background: '#ffffff',
+          background: '#FFFFFF',
           flexShrink: 0
         }}>
-          <div style={{ flex: 1, paddingRight: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-              <span style={{ background: '#F1F5F9', color: '#334155', padding: '3px 10px', borderRadius: '100px', fontSize: '11.5px', fontWeight: 700 }}>
-                {item.category}
+          <div style={{ flex: 1, paddingRight: '2.5rem' }}>
+            {/* Top Badges Row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '10px', flexWrap: 'wrap' }}>
+              <span style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                color: '#334155',
+                padding: '4px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                {item?.category || 'Environment'}
               </span>
-              {item.owner && (
-                <span style={{ background: '#FFF7ED', color: '#ED7D31', border: '1px solid #FFEDD5', padding: '3px 10px', borderRadius: '100px', fontSize: '11.5px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <User size={11} /> {item.owner}
-                </span>
-              )}
-              <span style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#475569', padding: '3px 10px', borderRadius: '100px', fontSize: '11.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Clock size={11} /> Due {item.due_date || 'Day-1'}
+
+              <span style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                color: '#334155',
+                padding: '4px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                <User size={14} color="#64748B" />
+                <span>{item?.owner || 'Security & Compliance Lead'}</span>
               </span>
-              {item.is_critical && (
-                <span style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FEE2E2', padding: '3px 10px', borderRadius: '100px', fontSize: '11.5px', fontWeight: 700 }}>
-                  Critical Gatekeeper
-                </span>
-              )}
+
+              <span style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                color: '#334155',
+                padding: '4px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                <Clock size={14} color="#64748B" />
+                <span>Due {item?.due_date || '2026-10-17'}</span>
+              </span>
+
+              <span style={{
+                background: '#FFF5EE',
+                border: '1px solid #FFD8BF',
+                color: '#EA580C',
+                padding: '4px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#EA580C' }} />
+                <span>Critical Gatekeeper</span>
+              </span>
             </div>
 
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0', letterSpacing: '-0.025em' }}>
-              {item.name}
+            {/* Title */}
+            <h2 style={{
+              fontSize: '1.95rem',
+              fontWeight: 800,
+              color: '#0F172A',
+              margin: '0 0 8px 0',
+              letterSpacing: '-0.03em',
+              lineHeight: 1.25,
+              fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif'
+            }}>
+              {item?.name || 'Requirement Item'}
             </h2>
-            <p style={{ fontSize: '13.5px', color: '#64748B', margin: 0, lineHeight: 1.5 }}>
-              {item.description}
+
+            {/* Description */}
+            <p style={{
+              fontSize: '14.5px',
+              color: '#475569',
+              margin: 0,
+              lineHeight: 1.65,
+              maxWidth: '1200px',
+              fontFamily: '"Plus Jakarta Sans", sans-serif',
+              fontWeight: 450
+            }}>
+              {item?.description || 'Google Maps API calls must originate from approved egress IPs; the NAT gateway EIP must be added to the Google Cloud API key restrictions.'}
             </p>
           </div>
 
+          {/* Close Button */}
           <button
+            type="button"
             onClick={onClose}
             style={{
-              background: '#F1F5F9',
-              border: 'none',
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
               borderRadius: '50%',
-              width: '36px',
-              height: '36px',
+              width: '38px',
+              height: '38px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               color: '#64748B',
-              transition: 'background 0.2s ease'
+              flexShrink: 0,
+              transition: 'all 0.15s ease'
             }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#F1F5F9'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#F8FAFC'}
           >
-            <X size={18} />
+            <X size={19} />
           </button>
         </div>
 
-        {/* 2. BODY CONTENT */}
+        {/* 2. BODY SCROLLABLE CONTENT */}
         <div style={{
-          padding: '1.5rem 2rem',
+          padding: '1.75rem 3.25rem',
           overflowY: 'auto',
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          gap: '1.35rem'
+          gap: '1.6rem'
         }}>
-          {/* Required Deliverable Note */}
+          {/* Card 1: REQUIRED PROOF / ARTIFACT */}
           <div style={{
-            background: '#FFF9F5',
-            border: '1px solid #FCD9C2',
-            padding: '10px 14px',
-            borderRadius: '10px',
-            fontSize: '13px',
-            color: '#475569',
+            background: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            borderLeft: '4.5px solid #EA580C',
+            borderRadius: '12px',
+            padding: '16px 22px',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px'
+            gap: '16px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
           }}>
-            <FileText size={16} color="#ED7D31" style={{ flexShrink: 0 }} />
+            <FileText size={22} color="#0F172A" style={{ flexShrink: 0 }} />
             <div>
-              <strong style={{ color: '#ED7D31' }}>Required Proof / Artifact:</strong>{' '}
-              <span>{item.expected_evidence}</span>
+              <div style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: '#EA580C',
+                marginBottom: '3px',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                REQUIRED PROOF / ARTIFACT
+              </div>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#0F172A',
+                lineHeight: 1.5,
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                {expectedArtifact}
+              </div>
             </div>
           </div>
 
-          {/* NON-TECHNICAL CREDENTIAL RETRIEVAL GUIDE (Collapsible / Prominent for non-technical users) */}
-          {credGuide && credGuide.isCredential && (
-            <div style={{
-              background: 'linear-gradient(135deg, #FFFDFB 0%, #FFF8F3 100%)',
-              border: '1.5px solid #FCD9C2',
-              borderRadius: '14px',
-              padding: '1.15rem 1.35rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.85rem',
-              boxShadow: '0 2px 10px rgba(237, 125, 49, 0.05)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    background: '#ED7D31',
-                    color: '#ffffff',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: '100px',
-                    letterSpacing: '0.03em'
-                  }}>
-                    Non-Technical Guide
-                  </span>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
-                    How to get {credGuide.serviceName}
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {credGuide.consoleUrl && (
-                    <a
-                      href={credGuide.consoleUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        background: '#0F172A',
-                        color: '#ffffff',
-                        borderRadius: '6px',
-                        padding: '4px 10px',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        textDecoration: 'none'
-                      }}
-                    >
-                      <span>Open Console</span>
-                      <ArrowUpRight size={12} color="#ED7D31" />
-                    </a>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setShowCredGuide(!showCredGuide)}
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      padding: '4px 10px',
-                      fontSize: '11.5px',
-                      fontWeight: 700,
-                      color: '#475569',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {showCredGuide ? 'Hide Steps' : 'View Step-by-Step Instructions (3 min)'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Collapsible Steps Content */}
-              {showCredGuide && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                  {credGuide.quickSteps.map(step => (
-                    <div
-                      key={step.num}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '8px',
-                        background: '#ffffff',
-                        border: '1px solid #F1E5DC',
-                        borderRadius: '8px',
-                        padding: '8px 10px'
-                      }}
-                    >
-                      <div style={{
-                        width: '20px',
-                        height: '20px',
-                        borderRadius: '50%',
-                        background: '#ED7D31',
-                        color: '#ffffff',
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        marginTop: '1px'
-                      }}>
-                        {step.num}
-                      </div>
-                      <div style={{ lineHeight: 1.4 }}>
-                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{step.action}</div>
-                        <div style={{ fontSize: '12px', color: '#475569' }}>{step.detail}</div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* IT Request Delegation Drawer */}
-                  <div style={{ borderTop: '1px dashed #FCD9C2', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => setShowItDelegation(!showItDelegation)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#ED7D31',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        {showItDelegation ? '▼ Hide IT Request Message' : '▶ Not an Admin? Copy message to send your IT / Cloud Admin'}
-                      </button>
-
-                      {showItDelegation && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopyDelegation(credGuide.delegationMessage)}
-                          style={{
-                            background: '#ffffff',
-                            border: '1px solid #CBD5E1',
-                            borderRadius: '6px',
-                            padding: '3px 8px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: '#0F172A',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          {copiedDelegation ? <Check size={11} color="#10B981" /> : <Copy size={11} />}
-                          <span>{copiedDelegation ? 'Copied!' : 'Copy IT Email'}</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {showItDelegation && (
-                      <div style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '6px',
-                        padding: '8px 10px',
-                        fontSize: '11.5px',
-                        fontFamily: 'monospace',
-                        color: '#334155',
-                        whiteSpace: 'pre-wrap'
-                      }}>
-                        {credGuide.delegationMessage}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* EVIDENCE UPLOAD & SCREENSHOT PASTING (Supports Paste Ctrl+V + Multiple files) */}
-          <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', padding: '1rem 1.25rem', background: '#ffffff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#111827', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <ImageIcon size={15} color="#ED7D31" />
-                <span>Upload or Paste Screenshots & Evidence</span>
-              </div>
-              <span style={{ fontSize: '11.5px', color: '#ED7D31', fontWeight: 700, background: '#FFF7F0', border: '1px solid #FCD9C2', padding: '2px 8px', borderRadius: '100px' }}>
-                Ctrl + V to Paste Screenshot Anywhere
+          {/* Card 2: NON-TECHNICAL GUIDE CARD */}
+          <div style={{
+            background: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            borderRadius: '12px',
+            padding: '16px 22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{
+                background: '#FFF7ED',
+                border: '1px solid #FF5C00',
+                color: '#FF5C00',
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '4px 12px',
+                borderRadius: '6px',
+                letterSpacing: '0.04em',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                NON-TECHNICAL GUIDE
+              </span>
+              <span style={{
+                fontSize: '14px',
+                fontWeight: 700,
+                color: '#0F172A',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                How to get Google Cloud Platform (Maps Platform API)
               </span>
             </div>
 
-            {/* Drag / Drop / Click zone */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <a
+                href="https://console.cloud.google.com/google/maps-apis"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  background: '#0F172A',
+                  color: '#FFFFFF',
+                  borderRadius: '8px',
+                  padding: '8px 18px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  textDecoration: 'none',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  transition: 'background 0.15s ease'
+                }}
+              >
+                <span>Open Console</span>
+                <ExternalLink size={14} color="#FFFFFF" />
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setShowCredGuide(!showCredGuide)}
+                style={{
+                  background: '#FFFFFF',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: '8px',
+                  padding: '8px 18px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#0F172A',
+                  cursor: 'pointer',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {showCredGuide ? 'Hide Instructions' : 'View Step-by-Step Instructions (3 min)'}
+              </button>
+            </div>
+          </div>
+
+          {/* Collapsible Step-by-Step Instructions */}
+          {showCredGuide && (
+            <div style={{
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: '12px',
+              padding: '18px 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              fontFamily: '"Plus Jakarta Sans", sans-serif'
+            }}>
+              <strong style={{ fontSize: '13.5px', color: '#0F172A', fontWeight: 800 }}>Standard Operating Procedure:</strong>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13.5px', color: '#475569', lineHeight: 1.6 }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <span style={{ fontWeight: 800, color: '#0F172A' }}>1.</span>
+                  <span>Navigate to <strong>Google Cloud Console &gt; APIs &amp; Services &gt; Credentials</strong>.</span>
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <span style={{ fontWeight: 800, color: '#0F172A' }}>2.</span>
+                  <span>Select your API key, click <strong>Application restrictions &gt; IP addresses</strong>, and add goML Egress NAT IP (<code style={{ fontFamily: '"JetBrains Mono", monospace', background: '#FFFFFF', border: '1px solid #CBD5E1', padding: '1px 6px', borderRadius: '4px', color: '#0F172A' }}>34.120.45.10/32</code>).</span>
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <span style={{ fontWeight: 800, color: '#0F172A' }}>3.</span>
+                  <span>Under <strong>API restrictions</strong>, restrict key to Directions API, Geocoding API, and Distance Matrix API, then save.</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Card 3: UPLOAD OR PASTE SCREENSHOTS & EVIDENCE */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: '#0F172A',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                <ImageIcon size={16} color="#0F172A" />
+                <span>Upload or Paste Screenshots &amp; Evidence</span>
+              </div>
+
+              <span style={{
+                fontSize: '12px',
+                fontFamily: '"JetBrains Mono", monospace',
+                color: '#64748B',
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                padding: '3px 12px',
+                borderRadius: '6px',
+                fontWeight: 500
+              }}>
+                Ctrl + V to paste anywhere
+              </span>
+            </div>
+
+            {/* Dashed Dropzone */}
             <div style={{
               border: '1.5px dashed #CBD5E1',
-              borderRadius: '8px',
-              padding: '1.25rem 1rem',
+              borderRadius: '12px',
+              padding: '1.8rem 1.25rem',
               textAlign: 'center',
-              background: '#F8FAFC',
-              cursor: 'pointer'
-            }}>
+              background: '#FAFAFC',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.borderColor = '#EA580C'}
+            onMouseOut={(e) => e.currentTarget.style.borderColor = '#CBD5E1'}
+            >
               <input
                 type="file"
                 id="evidence-multi-upload"
@@ -875,446 +838,737 @@ export const SubmitEvidenceModal = ({ isOpen, onClose, item, onSubmitted }) => {
                 style={{ display: 'none' }}
                 onChange={handleFileSelect}
               />
-              <label htmlFor="evidence-multi-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                <Upload size={22} color="#64748B" />
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#374151' }}>
-                  Click to choose files, drop screenshots, or press <kbd style={{ background: '#E2E8F0', padding: '1px 6px', borderRadius: '4px', fontFamily: 'inherit' }}>Ctrl + V</kbd> to paste
-                </span>
-                <span style={{ fontSize: '11px', color: '#94A3B8' }}>
-                  Supports multiple screenshots (.png, .jpg), PDF, SQL queries, JSON logs
-                </span>
+              <label htmlFor="evidence-multi-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: '#FFFFFF',
+                  border: '1.5px solid #E2E8F0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#64748B',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.04)'
+                }}>
+                  <Upload size={21} />
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  Click to choose files, drop screenshots, or press <kbd style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: '5px', fontSize: '12px', fontFamily: '"JetBrains Mono", monospace', fontWeight: 600, color: '#0F172A' }}>Ctrl + V</kbd> to paste
+                </div>
+                <div style={{ fontSize: '12px', color: '#94A3B8', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  Supports .png, .jpg, PDF, SQL queries, JSON logs (up to 25MB)
+                </div>
               </label>
             </div>
 
-            {/* Attached files & Pasted Screenshots previews */}
+            {/* Attached Evidence Files List */}
             {filePreviews.length > 0 && (
-              <div style={{ marginTop: '0.85rem' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>
-                  Attached Evidence Files ({filePreviews.length}):
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
-                  {filePreviews.map((fp, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '8px',
-                        padding: '6px',
-                        background: '#FAFAFA',
-                        position: 'relative',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile(idx)}
-                        style={{
-                          position: 'absolute',
-                          top: '3px',
-                          right: '3px',
-                          background: 'rgba(0,0,0,0.6)',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '50%',
-                          width: '18px',
-                          height: '18px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer'
-                        }}
-                        title="Delete file"
-                      >
-                        <X size={11} />
-                      </button>
-
-                      {fp.isImage && fp.url ? (
-                        <img
-                          src={fp.url}
-                          alt={fp.name}
-                          style={{ width: '100%', height: '65px', objectFit: 'cover', borderRadius: '4px' }}
-                        />
-                      ) : (
-                        <div style={{ width: '100%', height: '65px', background: '#EEF2F6', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>
-                          <FileText size={24} />
-                        </div>
-                      )}
-
-                      <div style={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10.5px', color: '#374151', textAlign: 'center', fontWeight: 600 }}>
-                        {fp.name}
-                      </div>
-                      <div style={{ fontSize: '9.5px', color: '#94A3B8' }}>
-                        {(fp.size / 1024).toFixed(1)} KB
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* DETAILED CREDENTIAL & HANDOVER SPECIFICATION TEMPLATE TABLE */}
-            <div style={{ marginTop: '1.25rem', borderTop: '1px solid #F1F5F9', paddingTop: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <FileText size={15} color="#ED7D31" />
-                  <span>Credential & Access Handover Template Table</span>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={handleRegenerateWithAI}
-                    disabled={isAiGenerating}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {filePreviews.map((fp, idx) => (
+                  <div
+                    key={idx}
                     style={{
-                      background: '#FFF7ED',
-                      color: '#ED7D31',
-                      border: '1px solid #FFEDD5',
-                      padding: '4px 10px',
-                      borderRadius: '100px',
-                      fontSize: '11.5px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
+                      background: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                    }}
+                  >
+                    {/* File row header */}
+                    <div style={{
+                      padding: '12px 18px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '4px',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = '#FFE8D6'}
-                    onMouseOut={(e) => e.currentTarget.style.background = '#FFF7ED'}
-                  >
-                    {isAiGenerating ? <Loader2 className="animate-spin" size={12} /> : <Zap size={12} color="#ED7D31" />}
-                    <span>{isAiGenerating ? 'Generating...' : 'AI Auto-Generate Template'}</span>
-                  </button>
-                  <span style={{ fontSize: '11px', color: '#64748B', background: '#F1F5F9', padding: '3px 8px', borderRadius: '100px', fontWeight: 600 }}>
-                    Formatted for Teams, Slack & Email
-                  </span>
+                      justifyContent: 'space-between',
+                      gap: '14px',
+                      background: fp.isImage ? '#FAFAFA' : '#FFFFFF'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        {fp.isImage && fp.url ? (
+                          <div
+                            style={{
+                              width: '46px',
+                              height: '36px',
+                              borderRadius: '6px',
+                              overflow: 'hidden',
+                              border: '1px solid #CBD5E1',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              background: '#000000'
+                            }}
+                            onClick={() => window.open(fp.url, '_blank')}
+                            title="Click to view full resolution in new tab"
+                          >
+                            <img
+                              src={fp.url}
+                              alt={fp.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          </div>
+                        ) : (
+                          <span style={{
+                            width: '42px',
+                            height: '32px',
+                            background: '#F1F5F9',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: '#334155',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontFamily: '"JetBrains Mono", monospace'
+                          }}>
+                            {fp.name.endsWith('.pdf') ? 'PDF' : 'PNG'}
+                          </span>
+                        )}
+
+                        <div>
+                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F172A', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                            {fp.name}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748B', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                            {fp.subtext}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        {fp.readyForReview && (
+                          <span style={{
+                            fontSize: '12.5px',
+                            color: '#16A34A',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontFamily: '"Plus Jakarta Sans", sans-serif'
+                          }}>
+                            <Check size={15} color="#16A34A" strokeWidth={3} />
+                            <span>Ready for Review</span>
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile(idx)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#94A3B8',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            borderRadius: '4px'
+                          }}
+                          title="Remove file"
+                        >
+                          <X size={17} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Rich Image Preview Frame for Pasted Screenshots */}
+                    {fp.isImage && fp.url && (
+                      <div style={{
+                        borderTop: '1px solid #E2E8F0',
+                        padding: '12px 18px',
+                        background: '#FFFFFF'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '8px'
+                        }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            color: '#64748B',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}>
+                            <ImageIcon size={12} color="#64748B" />
+                            <span>Pasted Screenshot Preview</span>
+                          </span>
+
+                          <a
+                            href={fp.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              color: '#0F172A',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <span>Open Full Size</span>
+                            <ExternalLink size={11} />
+                          </a>
+                        </div>
+
+                        <div style={{
+                          maxHeight: '260px',
+                          overflow: 'auto',
+                          borderRadius: '8px',
+                          border: '1px solid #E2E8F0',
+                          background: '#F8FAFC',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <img
+                            src={fp.url}
+                            alt="Screenshot preview"
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: '260px',
+                              objectFit: 'contain',
+                              display: 'block'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Card 4: CREDENTIAL & ACCESS HANDOVER TABLE */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#0F172A',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif'
+                }}>
+                  <FileText size={16} color="#0F172A" />
+                  <span>Credential &amp; Access Handover Template Table</span>
                 </div>
+                <span style={{ fontSize: '12.5px', color: '#64748B', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                  Formatted for Teams, Slack &amp; Email
+                </span>
               </div>
 
-              {/* Template Grid */}
-              <div style={{
-                background: '#F8FAFC',
-                border: '1px solid #E2E8F0',
-                borderRadius: '10px',
-                padding: '1rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.85rem'
-              }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
-                  {/* Host / Endpoint */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                      Host / Endpoint URL:
-                    </label>
-                    <input
-                      type="text"
-                      value={endpoint}
-                      onChange={(e) => setEndpoint(e.target.value)}
-                      placeholder="e.g. mysql://db-staging.internal.corp.com:3306"
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12.5px', color: '#0F172A', background: '#FFFFFF', outline: 'none', fontFamily: 'monospace' }}
-                      onFocus={(e) => e.target.style.borderColor = '#ED7D31'}
-                      onBlur={(e) => e.target.style.borderColor = '#CBD5E1'}
-                    />
-                  </div>
+              <button
+                type="button"
+                onClick={handleRegenerateWithAI}
+                disabled={isAiGenerating}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  background: '#FFFFFF',
+                  border: '1.5px solid #CBD5E1',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  color: '#0F172A',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif'
+                }}
+              >
+                {isAiGenerating ? <Loader2 className="animate-spin" size={14} /> : <Star size={14} color="#0F172A" fill="#0F172A" />}
+                <span>{isAiGenerating ? 'Generating...' : 'AI Auto-Generate Template'}</span>
+              </button>
+            </div>
 
-                  {/* Auth Method */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                      Auth Method / Protocol:
-                    </label>
-                    <input
-                      type="text"
-                      value={authMethod}
-                      onChange={(e) => setAuthMethod(e.target.value)}
-                      placeholder="e.g. Read-Only DB User + TLS / IAM Role"
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12.5px', color: '#0F172A', background: '#FFFFFF', outline: 'none' }}
-                      onFocus={(e) => e.target.style.borderColor = '#ED7D31'}
-                      onBlur={(e) => e.target.style.borderColor = '#CBD5E1'}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
-                  {/* Username / Account ID */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                      Username / Service Account ID:
-                    </label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="e.g. goml_data_steward_ro"
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12.5px', color: '#0F172A', background: '#FFFFFF', outline: 'none', fontFamily: 'monospace' }}
-                      onFocus={(e) => e.target.style.borderColor = '#ED7D31'}
-                      onBlur={(e) => e.target.style.borderColor = '#CBD5E1'}
-                    />
-                  </div>
-
-                  {/* Secret / Vault Reference */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                      Secret Key / Vault Reference:
-                    </label>
-                    <input
-                      type="text"
-                      value={vaultRef}
-                      onChange={(e) => setVaultRef(e.target.value)}
-                      placeholder="e.g. [Vault: AWS Secrets Manager / 1Password Share]"
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12.5px', color: '#ED7D31', fontWeight: 600, background: '#FFFFFF', outline: 'none' }}
-                      onFocus={(e) => e.target.style.borderColor = '#ED7D31'}
-                      onBlur={(e) => e.target.style.borderColor = '#CBD5E1'}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
-                  {/* Ingress / Whitelisted IP */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                      Network Ingress / Whitelisted IP:
-                    </label>
-                    <input
-                      type="text"
-                      value={ingressIp}
-                      onChange={(e) => setIngressIp(e.target.value)}
-                      placeholder="e.g. 34.120.45.10/32 (goML Staging VPC)"
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12.5px', color: '#0F172A', background: '#FFFFFF', outline: 'none' }}
-                      onFocus={(e) => e.target.style.borderColor = '#ED7D31'}
-                      onBlur={(e) => e.target.style.borderColor = '#CBD5E1'}
-                    />
-                  </div>
-
-                  {/* Environment Scope */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                      Environment & Scope:
-                    </label>
-                    <input
-                      type="text"
-                      value={envScope}
-                      onChange={(e) => setEnvScope(e.target.value)}
-                      placeholder="e.g. Staging Mirror / Schema Audit & Routing Validation"
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12.5px', color: '#0F172A', background: '#FFFFFF', outline: 'none' }}
-                      onFocus={(e) => e.target.style.borderColor = '#ED7D31'}
-                      onBlur={(e) => e.target.style.borderColor = '#CBD5E1'}
-                    />
-                  </div>
-                </div>
-
-                {/* Client Sign-off Name */}
+            {/* Handover Table Inputs Grid */}
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '12px',
+              padding: '22px 26px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    Client Technical Lead Sign-off:
+                  <label style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: '#475569',
+                    marginBottom: '6px',
+                    fontFamily: '"Plus Jakarta Sans", sans-serif'
+                  }}>
+                    HOST / ENDPOINT URL
                   </label>
                   <input
                     type="text"
-                    value={signoffBy}
-                    onChange={(e) => setSignoffBy(e.target.value)}
-                    placeholder="e.g. Praveen Karuppusamy (Client Technical Lead)"
-                    style={{ width: '100%', padding: '7px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12.5px', color: '#0F172A', background: '#FFFFFF', outline: 'none', fontWeight: 600 }}
-                    onFocus={(e) => e.target.style.borderColor = '#ED7D31'}
-                    onBlur={(e) => e.target.style.borderColor = '#CBD5E1'}
+                    className="goml-modal-input"
+                    value={endpoint}
+                    onChange={(e) => setEndpoint(e.target.value)}
+                    placeholder="e.g. https://maps.googleapis.com/maps/api/"
+                    style={{
+                      width: '100%',
+                      padding: '11px 15px',
+                      border: '1.5px solid #E2E8F0',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      color: '#0F172A',
+                      fontFamily: '"JetBrains Mono", monospace',
+                      background: '#F8FAFC',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease'
+                    }}
                   />
                 </div>
 
-                {/* Notes */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    Verification Notes / Summary:
+                  <label style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: '#475569',
+                    marginBottom: '6px',
+                    fontFamily: '"Plus Jakarta Sans", sans-serif'
+                  }}>
+                    AUTH METHOD / PROTOCOL
                   </label>
-                  <textarea
-                    value={evidenceNotes}
-                    onChange={(e) => setEvidenceNotes(e.target.value)}
-                    placeholder="Add verification notes, test output details, or remarks..."
-                    rows={2}
+                  <input
+                    type="text"
+                    className="goml-modal-input"
+                    value={authMethod}
+                    onChange={(e) => setAuthMethod(e.target.value)}
+                    placeholder="e.g. GCP API Key with IP Restrictions"
                     style={{
                       width: '100%',
-                      padding: '7px 10px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '12.5px',
+                      padding: '11px 15px',
+                      border: '1.5px solid #E2E8F0',
+                      borderRadius: '8px',
+                      fontSize: '13.5px',
                       color: '#0F172A',
-                      background: '#FFFFFF',
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      background: '#F8FAFC',
                       outline: 'none',
-                      resize: 'vertical',
-                      fontFamily: 'inherit'
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease'
                     }}
-                    onFocus={(e) => e.target.style.borderColor = '#ED7D31'}
-                    onBlur={(e) => e.target.style.borderColor = '#CBD5E1'}
                   />
                 </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: '#475569',
+                    marginBottom: '6px',
+                    fontFamily: '"Plus Jakarta Sans", sans-serif'
+                  }}>
+                    USERNAME / SERVICE ACCOUNT ID
+                  </label>
+                  <input
+                    type="text"
+                    className="goml-modal-input"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. goml-maps-routing-svc@gcp-project.iam"
+                    style={{
+                      width: '100%',
+                      padding: '11px 15px',
+                      border: '1.5px solid #E2E8F0',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      color: '#0F172A',
+                      fontFamily: '"JetBrains Mono", monospace',
+                      background: '#F8FAFC',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: '#475569',
+                    marginBottom: '6px',
+                    fontFamily: '"Plus Jakarta Sans", sans-serif'
+                  }}>
+                    SECRET KEY / VAULT REFERENCE
+                  </label>
+                  <input
+                    type="text"
+                    className="goml-modal-input"
+                    value={vaultRef}
+                    onChange={(e) => setVaultRef(e.target.value)}
+                    placeholder="e.g. [1Password / GCP Secret Manager: secret/google-maps-api-key]"
+                    style={{
+                      width: '100%',
+                      padding: '11px 15px',
+                      border: '1.5px solid #FFD8BF',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      color: '#EA580C',
+                      fontWeight: 700,
+                      fontFamily: '"JetBrains Mono", monospace',
+                      background: '#FFF9F5',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: '#475569',
+                    marginBottom: '6px',
+                    fontFamily: '"Plus Jakarta Sans", sans-serif'
+                  }}>
+                    NETWORK INGRESS / WHITELISTED IP
+                  </label>
+                  <input
+                    type="text"
+                    className="goml-modal-input"
+                    value={ingressIp}
+                    onChange={(e) => setIngressIp(e.target.value)}
+                    placeholder="e.g. 34.120.45.10/32 (goML Staging VPC)"
+                    style={{
+                      width: '100%',
+                      padding: '11px 15px',
+                      border: '1.5px solid #E2E8F0',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      color: '#0F172A',
+                      fontFamily: '"JetBrains Mono", monospace',
+                      background: '#F8FAFC',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: '#475569',
+                    marginBottom: '6px',
+                    fontFamily: '"Plus Jakarta Sans", sans-serif'
+                  }}>
+                    ENVIRONMENT &amp; SCOPE
+                  </label>
+                  <input
+                    type="text"
+                    className="goml-modal-input"
+                    value={envScope}
+                    onChange={(e) => setEnvScope(e.target.value)}
+                    placeholder="e.g. Staging & Production Pilot"
+                    style={{
+                      width: '100%',
+                      padding: '11px 15px',
+                      border: '1.5px solid #E2E8F0',
+                      borderRadius: '8px',
+                      fontSize: '13.5px',
+                      color: '#0F172A',
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      background: '#F8FAFC',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: '#475569',
+                  marginBottom: '6px',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif'
+                }}>
+                  CLIENT TECHNICAL LEAD SIGN-OFF
+                </label>
+                <input
+                  type="text"
+                  className="goml-modal-input"
+                  value={signoffBy}
+                  onChange={(e) => setSignoffBy(e.target.value)}
+                  placeholder="e.g. Praveen Karuppusamy (Client Technical Lead)"
+                  style={{
+                    width: '100%',
+                    padding: '11px 15px',
+                    border: '1.5px solid #E2E8F0',
+                    borderRadius: '8px',
+                    fontSize: '13.5px',
+                    color: '#0F172A',
+                    fontWeight: 600,
+                    fontFamily: '"Plus Jakarta Sans", sans-serif',
+                    background: '#F8FAFC',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.15s ease'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: '#475569',
+                  marginBottom: '6px',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif'
+                }}>
+                  VERIFICATION NOTES / HANDOVER SUMMARY
+                </label>
+                <textarea
+                  className="goml-modal-input"
+                  value={evidenceNotes}
+                  onChange={(e) => setEvidenceNotes(e.target.value)}
+                  placeholder="Verified Google Cloud billing account active. API key restricted to server IPs..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: '1.5px solid #E2E8F0',
+                    borderRadius: '8px',
+                    fontSize: '13.5px',
+                    lineHeight: 1.6,
+                    color: '#0F172A',
+                    fontFamily: '"Plus Jakarta Sans", "Inter", sans-serif',
+                    background: '#F8FAFC',
+                    outline: 'none',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.15s ease'
+                  }}
+                />
               </div>
             </div>
           </div>
 
-          {/* PROMINENT ONE-CLICK SHARE ACTIONS (TEAMS, SLACK, EMAIL) */}
-          <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.15rem 1.25rem', background: '#ffffff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Share2 size={16} color="#ED7D31" />
+          {/* Card 5: SHARE DELIVERY STATUS */}
+          <div style={{
+            background: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            borderRadius: '12px',
+            padding: '18px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: '#EA580C',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                fontFamily: '"Plus Jakarta Sans", sans-serif'
+              }}>
+                <Share2 size={16} color="#0F172A" />
                 <span>Share Delivery Status</span>
               </div>
-              <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
-                1-Click copies formatted table & opens the app
+
+              <span style={{ fontSize: '12px', color: '#64748B', fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                1-Click copies formatted table &amp; opens the app
               </span>
             </div>
 
-            {/* 3 Prominent One-Click Share Buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
-              {/* Teams 1-Click Launch & Copy */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+              {/* Teams Button */}
               <button
                 type="button"
-                onClick={handleShareTeams}
+                onClick={handleShareToTeams}
                 style={{
-                  background: '#464EB8',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '0.75rem 1rem',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 2px 8px rgba(70, 78, 184, 0.25)',
-                  transition: 'all 0.2s ease'
+                  gap: '9px',
+                  padding: '12px 20px',
+                  borderRadius: '10px',
+                  background: '#464EB8',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontSize: '13.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(70, 78, 184, 0.25)',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  transition: 'transform 0.15s ease'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#3B429F'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#464EB8'}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 <TeamsLogo />
                 <span>Share to Teams</span>
-                <ExternalLink size={13} style={{ opacity: 0.8 }} />
+                <ExternalLink size={14} color="#FFFFFF" />
               </button>
 
-              {/* Slack 1-Click Send & Launch */}
+              {/* Slack Button */}
               <button
                 type="button"
-                onClick={handleShareSlack}
-                disabled={slackSending}
+                onClick={handleShareToSlack}
                 style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '9px',
+                  padding: '12px 20px',
+                  borderRadius: '10px',
                   background: '#0F172A',
-                  color: '#ffffff',
+                  color: '#FFFFFF',
                   border: 'none',
-                  borderRadius: '10px',
-                  padding: '0.75rem 1rem',
-                  fontSize: '13px',
+                  fontSize: '13.5px',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                  transition: 'all 0.2s ease'
+                  boxShadow: '0 2px 6px rgba(15, 23, 42, 0.25)',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  transition: 'transform 0.15s ease'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#1E293B'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#0F172A'}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                {slackSending ? <Loader2 className="animate-spin" size={14} /> : (slackSuccess ? <Check size={14} color="#10B981" /> : <SlackLogo />)}
-                <span>{slackSuccess ? 'Delivered to Slack!' : 'Share to Slack'}</span>
-                <ExternalLink size={13} style={{ opacity: 0.8 }} />
+                <SlackLogo />
+                <span>Share to Slack</span>
+                <ExternalLink size={14} color="#FFFFFF" />
               </button>
 
-              {/* Email 1-Click Mailto Launch & Copy */}
+              {/* Email Button */}
               <button
                 type="button"
-                onClick={handleShareEmail}
+                onClick={handleShareViaEmail}
                 style={{
-                  background: '#F8FAFC',
-                  color: '#0F172A',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '10px',
-                  padding: '0.75rem 1rem',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  transition: 'all 0.2s ease'
+                  gap: '9px',
+                  padding: '12px 20px',
+                  borderRadius: '10px',
+                  background: '#FFFFFF',
+                  color: '#EA580C',
+                  border: '1.5px solid #FFD8BF',
+                  fontSize: '13.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  transition: 'all 0.15s ease'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#EDF2F7'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#F8FAFC'}
+                onMouseOver={(e) => e.currentTarget.style.background = '#FFF5EE'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#FFFFFF'}
               >
-                <Send size={14} color="#ED7D31" />
+                <Send size={14} color="#0F172A" />
                 <span>Share via Email</span>
-                <ExternalLink size={13} style={{ opacity: 0.6 }} />
+                <ExternalLink size={14} color="#0F172A" />
               </button>
             </div>
           </div>
-
-          {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FEE2E2', color: '#DC2626', padding: '8px 12px', borderRadius: '8px', fontSize: '12.5px' }}>
-              {error}
-            </div>
-          )}
         </div>
 
-        {/* 3. FOOTER */}
+        {/* 3. STICKY BOTTOM ACTION BAR */}
         <div style={{
-          padding: '1rem 1.75rem',
-          borderTop: '1px solid #F0ECE8',
-          background: '#ffffff',
+          padding: '1.35rem 3.25rem',
+          borderTop: '1px solid #E2E8F0',
+          background: '#FFFFFF',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '12px', color: '#6B7280' }}>Status:</span>
+          {/* Status Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13.5px', color: '#64748B', fontWeight: 600, fontFamily: '"Plus Jakarta Sans", sans-serif' }}>Status:</span>
             <span style={{
-              background: item.status === 'Verified' ? '#F0FDF4' : item.status === 'Submitted' ? '#FFF7F0' : '#F3F4F6',
-              color: item.status === 'Verified' ? '#16A34A' : item.status === 'Submitted' ? '#ED7D31' : '#4B5563',
-              border: item.status === 'Verified' ? '1px solid #DCFCE7' : item.status === 'Submitted' ? '1px solid #FCD9C2' : '1px solid #E5E5E5',
-              padding: '2px 8px',
-              borderRadius: '100px',
-              fontSize: '11.5px',
-              fontWeight: 700
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px',
+              background: item?.status === 'Verified' ? '#F0FDF4' : '#FFF5EE',
+              color: item?.status === 'Verified' ? '#16A34A' : '#EA580C',
+              border: item?.status === 'Verified' ? '1px solid #DCFCE7' : '1px solid #FFD8BF',
+              padding: '4px 14px',
+              borderRadius: '9999px',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              fontFamily: '"Plus Jakarta Sans", sans-serif'
             }}>
-              {item.status}
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: item?.status === 'Verified' ? '#16A34A' : '#EA580C' }} />
+              <span>{item?.status === 'Verified' ? 'Verified' : 'Submitted'}</span>
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
               type="button"
               onClick={onClose}
-              style={{ background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '0.5rem 1rem', fontSize: '12.5px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSaveAndSync('Submitted')}
-              disabled={savingItem}
               style={{
-                background: '#ED7D31',
-                color: '#ffffff',
+                background: 'transparent',
                 border: 'none',
-                borderRadius: '6px',
-                padding: '0.5rem 1.25rem',
-                fontSize: '12.5px',
-                fontWeight: 700,
+                padding: '10px 20px',
+                fontSize: '13.5px',
+                fontWeight: 600,
+                color: '#64748B',
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 8px rgba(237, 125, 49, 0.25)'
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: '8px'
               }}
             >
-              {savingItem ? <Loader2 className="animate-spin" size={13} /> : <Send size={13} />}
-              <span>Submit for Engineering Review</span>
+              Cancel
             </button>
 
             <button
@@ -1322,22 +1576,52 @@ export const SubmitEvidenceModal = ({ isOpen, onClose, item, onSubmitted }) => {
               onClick={() => handleSaveAndSync('Verified')}
               disabled={savingItem}
               style={{
-                background: '#0F172A',
-                color: '#ffffff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                background: '#FFFFFF',
+                border: '1.5px solid #0F172A',
+                borderRadius: '10px',
+                padding: '11px 24px',
+                fontSize: '13.5px',
+                fontWeight: 700,
+                color: '#0F172A',
+                cursor: 'pointer',
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#F8FAFC'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#FFFFFF'}
+            >
+              <Check size={15} color="#0F172A" strokeWidth={3} />
+              <span>Mark Verified</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSaveAndSync('Submitted')}
+              disabled={savingItem}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '9px',
+                background: '#EA580C',
+                color: '#FFFFFF',
                 border: 'none',
-                borderRadius: '6px',
-                padding: '0.5rem 1.15rem',
-                fontSize: '12.5px',
+                borderRadius: '10px',
+                padding: '11px 28px',
+                fontSize: '13.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
+                boxShadow: '0 4px 14px rgba(234, 88, 12, 0.35)',
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                transition: 'all 0.15s ease'
               }}
-              title="Directly mark this requirement verified & cleared"
+              onMouseOver={(e) => e.currentTarget.style.background = '#D94E06'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#EA580C'}
             >
-              {savingItem ? <Loader2 className="animate-spin" size={13} /> : <Check size={13} color="#10B981" />}
-              <span>Mark Verified</span>
+              <Send size={15} color="#FFFFFF" />
+              <span>Submit for Engineering Review</span>
             </button>
           </div>
         </div>
