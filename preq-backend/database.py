@@ -5,6 +5,9 @@ import os
 try:
     from dotenv import load_dotenv
     load_dotenv()
+    local_env = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(local_env):
+        load_dotenv(local_env)
 except ImportError:
     pass
 
