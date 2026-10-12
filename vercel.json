@@ -1,46 +1,20 @@
 {
-  "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "preq-frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     },
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/index.py"
+      "source": "/api",
+      "destination": "/api/index.py"
     },
     {
-      "src": "/api",
-      "dest": "api/index.py"
+      "source": "/uploads/(.*)",
+      "destination": "/api/index.py"
     },
     {
-      "src": "/uploads/(.*)",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "preq-frontend/assets/$1"
-    },
-    {
-      "src": "/favicon.(.*)",
-      "dest": "preq-frontend/favicon.$1"
-    },
-    {
-      "src": "/([^/]+\\.[^/]+)",
-      "dest": "preq-frontend/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "preq-frontend/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
