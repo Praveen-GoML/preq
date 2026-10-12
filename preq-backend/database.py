@@ -13,7 +13,7 @@ except ImportError:
 
 # Never hardcode hosted database credentials in source code. Configure DATABASE_URL
 # in the local .env / deployment environment. SQLite is only a safe local fallback.
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./preq_local.db")
+DATABASE_URL = os.environ.get("DATABASE_URL") or ("sqlite:////tmp/preq_local.db" if os.environ.get("VERCEL") else "sqlite:///./preq_local.db")
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
