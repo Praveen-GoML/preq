@@ -1,12 +1,13 @@
-// Centralized API Configuration for Local Dev & Vercel Production
-const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
-export const API_URL = rawApiUrl
-  ? (rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl.replace(/\/+$/, '')}/api`)
-  : (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : '/api');
+// Centralized API Configuration for Local Dev & Production
+export const DEPLOYED_BACKEND_URL = 'https://preq-ten.vercel.app';
+
+const rawApiUrl = (import.meta.env.VITE_API_URL || DEPLOYED_BACKEND_URL).trim();
+export const API_URL = rawApiUrl.endsWith('/api')
+  ? rawApiUrl
+  : `${rawApiUrl.replace(/\/+$/, '')}/api`;
 
 export const BASE_URL = import.meta.env.VITE_BASE_URL 
-  || (rawApiUrl ? rawApiUrl.replace(/\/api\/?$/, '') : '')
-  || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:8000' : '');
+  || rawApiUrl.replace(/\/api\/?$/, '');
 
 import axios from 'axios';
 

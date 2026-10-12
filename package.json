@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "build": "cd preq-frontend && npm install && npm run build",
+    "build": "cd preq-frontend && npm install && npm run build && node -e \"const fs = require('fs'); fs.cpSync('./dist', '../dist', {recursive: true, force: true});\"",
     "dev": "cd preq-frontend && npm run dev",
     "dev:backend": "cd preq-backend && python -m uvicorn main:app --reload --port 8000"
   }

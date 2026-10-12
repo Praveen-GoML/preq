@@ -21,6 +21,7 @@ venv/
 *.sqlite
 uploads/*
 !uploads/.gitkeep
+uv.lock
 
 # Environment variables & secrets
 .env
